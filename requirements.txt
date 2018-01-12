@@ -1,0 +1,7 @@
+colour==0.1.5
+scipy==1.0.0
+pandas==0.21.1
+numpy==1.13.3
+matplotlib==2.1.0
+requests==2.9.1
+boto3==1.5.13
