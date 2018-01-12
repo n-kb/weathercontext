@@ -10,7 +10,9 @@ from scipy.interpolate import interp1d
 from colour import Color
 import requests, json, io, boto3
 from twitter import *
-from tkinter import *
+import matplotlib
+
+matplotlib.use('Agg')
 
 def getTemp():
     city = "Berlin"
