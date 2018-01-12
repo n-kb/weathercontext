@@ -1,3 +1,6 @@
+import matplotlib
+matplotlib.use('Agg')
+
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
@@ -10,9 +13,6 @@ from scipy.interpolate import interp1d
 from colour import Color
 import requests, json, io, boto3
 from twitter import *
-import matplotlib
-
-matplotlib.use('Agg')
 
 def getTemp():
     city = "Berlin"
