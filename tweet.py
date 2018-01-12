@@ -227,5 +227,6 @@ fig.tight_layout()
 ## Reduces size of plot to allow for subtitle text
 plt.subplots_adjust(top=0.75, bottom=0.08)
 
+# No need to save the image to S3
 # img_url = saveToS3(plt)
-# sendTweet(title, plt)
+sendTweet(title, plt)
