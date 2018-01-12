@@ -137,21 +137,21 @@ if current_temp > 25:
     
 subtitle = "Temperatures from 1979 to 2017 are shown below. The redder the color, the more recent the year."
 if (diff_from_avg < -2):
-    todays_text = "Today at noon, the temperature\nwas %d°C, lower than the\n1979-2000 average of %.2f°C."
+    todays_text = "Today at noon, the temperature\nwas %d°C, lower than the\n1979-2000 average of %.2f°C\nfor a %s."
     title = "%d°C today in Berlin, it's cold!"
 elif (diff_from_avg < 2):
-    todays_text = "Today at noon, the temperature\nwas %d°C, close to the\n1979-2000 average of %.2f°C."
+    todays_text = "Today at noon, the temperature\nwas %d°C, close to the\n1979-2000 average of %.2f°C\nfor a %s."
     title = "%d°C today in Berlin, about average %s." % (current_temp, hot_or_cold)
 elif (diff_from_avg < 5):
-    todays_text = "Today at noon, the temperature\nwas %d°C, above the\n1979-2000 average of %.2f°C."
+    todays_text = "Today at noon, the temperature\nwas %d°C, above the\n1979-2000 average of %.2f°C\nfor a %s."
     title = "%d°C today in Berlin, pretty warm." % current_temp
 else:
-    todays_text = "Today at noon, the temperature\nwas %d°C, way above the\n1979-2000 average of %.2f°C."
+    todays_text = "Today at noon, the temperature\nwas %d°C, way above the\n1979-2000 average of %.2f°C\nfor a %s."
     title = "%d°C today in Berlin, way too %s." % (current_temp, hot_or_warm)
 
 # If new record
 if (current_temp > max_temp):
-    todays_text = "Today's record of %d° \nis much higher \nthan the 1979-2000 \naverage of %.2f°C."
+    todays_text = "Today's record of %d° \nis much higher \nthan the 1979-2000 \naverage of %.2f°C\nfor a %s."
     title = "%d°C today in Berlin, new record!" % current_temp
     
 else:
@@ -168,7 +168,7 @@ else:
                 )
 
 # Annotation for today's value
-plt.annotate(todays_text % (current_temp, today_average), 
+plt.annotate(todays_text % (current_temp, today_average, today.strftime("%d %B")), 
              xy=(yday, current_temp), 
              xytext=(yday+.7, current_temp - 2),
              horizontalalignment='left', 
