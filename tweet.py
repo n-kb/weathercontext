@@ -43,10 +43,10 @@ def sendTweet(status_text, plt):
     imagedata.seek(0)
     
     t = Twitter(
-            auth=OAuth(s.environ["ACCESS_TOKEN", s.environ["ACCESS_SECRET"], s.environ["TWITTER_KEY"], s.environ["TWITTER_SECRET"]))
+            auth=OAuth(os.environ["ACCESS_TOKEN"], os.environ["ACCESS_SECRET"], os.environ["TWITTER_KEY"], os.environ["TWITTER_SECRET"]))
 
     t_upload = Twitter(domain='upload.twitter.com',
-            auth=OAuth(s.environ["ACCESS_TOKEN", s.environ["ACCESS_SECRET"], s.environ["TWITTER_KEY"], s.environ["TWITTER_SECRET"]))
+            auth=OAuth(os.environ["ACCESS_TOKEN"], os.environ["ACCESS_SECRET"], os.environ["TWITTER_KEY"], os.environ["TWITTER_SECRET"]))
     
     id_img = t_upload.media.upload(media=imagedata.read())["media_id_string"]
    
