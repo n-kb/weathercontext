@@ -16,7 +16,7 @@ from twitter import *
 
 def getTemp():
     city = "Berlin"
-    url = "http://api.openweathermap.org/data/2.5/weather?q=%s&APPID=%s" % (city, os.environ["OMWKEY"])
+    url = "http://api.openweathermap.org/data/2.5/weather?q=%s&APPID=%s" % (city, os.environ["OWMKEY"])
     r = requests.get(url)
     json_data = json.loads(r.text)
     # returns temperature in Celsius
