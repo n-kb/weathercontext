@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 import matplotlib
 matplotlib.use('Agg')
 
@@ -12,6 +15,7 @@ import datetime as dt
 from scipy.interpolate import interp1d
 from colour import Color
 import requests, json, io, boto3, os
+import matplotlib.dates as mdates
 from twitter import *
 
 def getTemp():
@@ -176,6 +180,11 @@ plt.annotate(todays_text % (current_temp, today_average),
 # Focuses on today
 ax.set_xlim([yday - 10,yday + 5])
 
+# Set x axis ticks
+times = pd.date_range(today - dt.timedelta(days=10), periods=15, freq='1d')
+xfmt = mdates.DateFormatter('%-d %B')
+ax.xaxis.set_major_formatter(xfmt)
+
 font_color = "#676767"
 serif_font = 'Bitstream Vera Serif'
 sans_font = 'Liberation Sans'     
@@ -222,4 +231,4 @@ fig.tight_layout()
 plt.subplots_adjust(top=0.75, bottom=0.08)
 
 # img_url = saveToS3(plt)
-sendTweet(title, plt)
+# sendTweet(title, plt)
