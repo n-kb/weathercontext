@@ -11,12 +11,12 @@ import csv
 import datetime as dt
 from scipy.interpolate import interp1d
 from colour import Color
-import requests, json, io, boto3
+import requests, json, io, boto3, os
 from twitter import *
 
 def getTemp():
     city = "Berlin"
-    url = "http://api.openweathermap.org/data/2.5/weather?q=%s&APPID=%s" % (city, OWMKEY)
+    url = "http://api.openweathermap.org/data/2.5/weather?q=%s&APPID=%s" % (city, os.environ["OMWKEY"])
     r = requests.get(url)
     json_data = json.loads(r.text)
     # returns temperature in Celsius
@@ -43,10 +43,10 @@ def sendTweet(status_text, plt):
     imagedata.seek(0)
     
     t = Twitter(
-            auth=OAuth(ACCESS_TOKEN, ACCESS_SECRET, TWITTER_KEY, TWITTER_SECRET))
+            auth=OAuth(s.environ["ACCESS_TOKEN", s.environ["ACCESS_SECRET"], s.environ["TWITTER_KEY"], s.environ["TWITTER_SECRET"]))
 
     t_upload = Twitter(domain='upload.twitter.com',
-            auth=OAuth(ACCESS_TOKEN, ACCESS_SECRET, TWITTER_KEY, TWITTER_SECRET))
+            auth=OAuth(s.environ["ACCESS_TOKEN", s.environ["ACCESS_SECRET"], s.environ["TWITTER_KEY"], s.environ["TWITTER_SECRET"]))
     
     id_img = t_upload.media.upload(media=imagedata.read())["media_id_string"]
    
