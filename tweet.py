@@ -31,12 +31,14 @@ def sendTweet(status_text, plt):
     plt.savefig(imagedata, format='png')
     imagedata.seek(0)
     
+    auth = OAuth(os.environ["ACCESS_TOKEN"], os.environ["ACCESS_SECRET"], os.environ["TWITTER_KEY"], os.environ["TWITTER_SECRET"])
+
     # Authenticate to twitter
     t = Twitter(
-            auth=OAuth(os.environ["ACCESS_TOKEN"], os.environ["ACCESS_SECRET"], os.environ["TWITTER_KEY"], os.environ["TWITTER_SECRET"]))
+            auth=auth)
 
     t_upload = Twitter(domain='upload.twitter.com',
-            auth=OAuth(os.environ["ACCESS_TOKEN"], os.environ["ACCESS_SECRET"], os.environ["TWITTER_KEY"], os.environ["TWITTER_SECRET"]))
+            auth=auth)
     
     # Sends image to twitter
     id_img = t_upload.media.upload(media=imagedata.read())["media_id_string"]
