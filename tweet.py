@@ -1,5 +1,5 @@
-import matplotlib
-matplotlib.use('Agg')
+import matplotlib as mpl
+mpl.use('Agg') # Needed as Heroku doesn't have the tk package installed
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -7,6 +7,7 @@ import numpy as np
 from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib.patches import ConnectionPatch
 import matplotlib.font_manager as font_manager
+import matplotlib.ticker as mticker    
 import csv
 import datetime as dt
 from scipy.interpolate import interp1d
@@ -23,42 +24,68 @@ def getTemp():
     # returns temperature in Celsius
     return json_data["main"]["temp"] - 272.15
 
-def saveToS3(plt):
-    img_data = io.BytesIO()
-    plt.savefig(img_data, format='png')
-    img_data.seek(0)
-    filename = dt.date.today().strftime("%Y-%B-%d") + "-Berlin.png"
-    client = boto3.client(
-        's3',
-        aws_access_key_id=ACCESS_KEY,
-        aws_secret_access_key=SECRET_KEY
-    )
-    s3 = boto3.resource('s3')
-    bucket = s3.Bucket(BUCKET_NAME)
-    bucket.put_object(Body=img_data, ContentType='image/png', Key=filename, ACL='public-read')
-    return "https://s3-eu-west-1.amazonaws.com/weathercontext/" + filename
-
 def sendTweet(status_text, plt):
+    
+    # Saves images to io object
     imagedata = io.BytesIO()
     plt.savefig(imagedata, format='png')
     imagedata.seek(0)
     
+    # Authenticate to twitter
     t = Twitter(
             auth=OAuth(os.environ["ACCESS_TOKEN"], os.environ["ACCESS_SECRET"], os.environ["TWITTER_KEY"], os.environ["TWITTER_SECRET"]))
 
     t_upload = Twitter(domain='upload.twitter.com',
             auth=OAuth(os.environ["ACCESS_TOKEN"], os.environ["ACCESS_SECRET"], os.environ["TWITTER_KEY"], os.environ["TWITTER_SECRET"]))
     
+    # Sends image to twitter
     id_img = t_upload.media.upload(media=imagedata.read())["media_id_string"]
    
+    # Tweets
     t.statuses.update(status=status_text, media_ids=id_img)
 
-
+# Prevents panda from producing a warning
 pd.options.mode.chained_assignment = None
 
-df = pd.read_csv('cities_meteo.csv')
+df = pd.read_csv('data/berlin.csv')
 
-colors = {"lowkey_blue": "#737D99", "dark_blue": "#335CCC", "cringing_blue": "#59DDFF", "lowkey_red":"#FFBB99", "strong_red": "#CC5033"}
+# Adds fonts to mpl
+for fontfile in ["VeraSerif", "LiberationSans-Regular"]:
+    path = 'fonts/%s.ttf' % fontfile
+    prop = font_manager.FontProperties(fname=path)
+    mpl.rcParams['font.family'] = prop.get_name()
+
+
+
+colors = {  "lowkey_blue": "#737D99", 
+            "dark_blue": "#335CCC", 
+            "cringing_blue": "#59DDFF", 
+            "lowkey_red":"#FFBB99", 
+            "strong_red": "#CC5033"}
+
+font_color = "#676767"
+serif_font = 'Bitstream Vera Serif'
+sans_font = 'Liberation Sans'     
+title_font = {'fontname':serif_font
+             ,'size': 21
+             ,'color': font_color}
+label_font = {'fontname':sans_font
+             ,'color': font_color
+             ,'size': 10}
+
+label_font_strong = {'fontname':sans_font
+             ,'color': 'black'
+             ,'size': 10}
+
+annotate_font = {'fontname':sans_font
+             ,'color': font_color
+             ,'size': 7}
+
+smaller_font = {'fontname':sans_font
+                ,'color': font_color
+                , 'size': 7
+                , 'weight': 'bold'}
+
 
 current_temp = getTemp()
 
@@ -132,24 +159,23 @@ if current_temp > 25:
     hot_or_warm = "hot"
 
     
-subtitle = "Temperatures from 1979 to 2017 are shown below. The redder the color, the more recent the year."
 if (diff_from_avg < -2):
     todays_text = "Today at noon, the temperature\nwas %d°C, lower than the\n1979-2000 average of %.2f°C\nfor a %s."
-    title = "%d°C today in Berlin, it's cold!"
+    title = "It's %d°C today in Berlin, pretty cold for a %s!"  % (current_temp, today.strftime("%d %B"))
 elif (diff_from_avg < 2):
     todays_text = "Today at noon, the temperature\nwas %d°C, close to the\n1979-2000 average of %.2f°C\nfor a %s."
-    title = "%d°C today in Berlin, about average %s." % (current_temp, hot_or_cold)
+    title = "It's %d°C today in Berlin, about average %s for a %s." % (current_temp, hot_or_cold, today.strftime("%d %B"))
 elif (diff_from_avg < 5):
     todays_text = "Today at noon, the temperature\nwas %d°C, above the\n1979-2000 average of %.2f°C\nfor a %s."
-    title = "%d°C today in Berlin, pretty warm." % current_temp
+    title = "It's %d°C today in Berlin, pretty warm for a %s." % (current_temp, today.strftime("%d %B"))
 else:
     todays_text = "Today at noon, the temperature\nwas %d°C, way above the\n1979-2000 average of %.2f°C\nfor a %s."
-    title = "%d°C today in Berlin, way too %s." % (current_temp, hot_or_warm)
+    title = "It's %d°C today in Berlin, way too %s for a %s." % (current_temp, hot_or_warm, today.strftime("%d %B"))
 
 # If new record
 if (current_temp > max_temp):
     todays_text = "Today's record of %d° \nis much higher \nthan the 1979-2000 \naverage of %.2f°C\nfor a %s."
-    title = "%d°C today in Berlin, new record!" % current_temp
+    title = "It's %d°C today in Berlin, new record for a %s!" % (current_temp, today.strftime("%d %B"))
     
 else:
     # Annotation for max value
@@ -159,6 +185,7 @@ else:
                  xytext=(yday+.7, max_temp + 3),
                  horizontalalignment='left', 
                  verticalalignment='top',
+                 **label_font_strong,
                  arrowprops=dict(arrowstyle="->",
                                 connectionstyle="arc3,rad=-0.3"
                                 )
@@ -170,10 +197,38 @@ plt.annotate(todays_text % (current_temp, today_average, today.strftime("%d %B")
              xytext=(yday+.7, current_temp - 2),
              horizontalalignment='left', 
              verticalalignment='top',
+             **label_font_strong,
              arrowprops=dict(arrowstyle="->",
                             connectionstyle="arc3,rad=-0.3"
                             )
             )
+
+# Annotation for the warmest and coldest years
+
+plt.annotate("Each line represents the temperature for a year.\nThis is 2014, warmest year on record for Berlin.", 
+             xy=(yday - 9, df.loc[(df["Date"] == "2014-" + (today - dt.timedelta(days=9)).strftime("%m-%d"))]["Value at MetPoint"]), 
+             xytext=(yday - 8, max_temp+10),
+             horizontalalignment='left', 
+             verticalalignment='top',
+             **label_font,
+             arrowprops=dict(arrowstyle="->",
+                            connectionstyle="arc3,rad=-0.3",
+                            ec=font_color
+                            )
+            )
+
+plt.annotate("And this is 1979.\nYellow lines are for older years,\nred ones for more recent ones.", 
+             xy=(yday - 3, df.loc[(df["Date"] == "1979-" + (today - dt.timedelta(days=3)).strftime("%m-%d"))]["Value at MetPoint"]), 
+             xytext=(yday - 8, max_temp - 20),
+             horizontalalignment='left', 
+             verticalalignment='top',
+             **label_font,
+             arrowprops=dict(arrowstyle="->",
+                            connectionstyle="arc3,rad=-0.3",
+                            ec=font_color
+                            )
+            )
+
 # Focuses on today
 ax.set_xlim([yday - 10,yday + 5])
 
@@ -182,34 +237,27 @@ times = pd.date_range(today - dt.timedelta(days=10), periods=15, freq='1d')
 xfmt = mdates.DateFormatter('%-d %B')
 ax.xaxis.set_major_formatter(xfmt)
 
-font_color = "#676767"
-serif_font = 'Bitstream Vera Serif'
-sans_font = 'Liberation Sans'     
-title_font = {'fontname':serif_font
-             ,'size': 21
-             ,'color': font_color}
-subtitle_font = {'fontname':serif_font
-                ,'size': 12
-                ,'color': font_color}
-label_font = {'fontname':sans_font
-             ,'color': font_color
-             ,'size': 10}
+# Set units for yaxis
+ax.yaxis.set_major_formatter(mticker.FormatStrFormatter('%d°C'))
 
-annotate_font = {'fontname':sans_font
-             ,'color': font_color
-             ,'size': 7}
-
-smaller_font = {'fontname':sans_font
-                ,'color': font_color
-                , 'size': 7
-                , 'weight': 'bold'}
+# Sets labels fonts for axes
+for label in ax.get_xticklabels():
+    label.set_fontproperties(font_manager.FontProperties(family=sans_font))
+    label.set_fontsize(9) 
+for label in ax.get_yticklabels():
+    label.set_fontproperties(font_manager.FontProperties(family=sans_font))
+    label.set_fontsize(9) 
 
 ## Adds title
 plt.figtext(.05,.9,title, **title_font)
-plt.figtext(.05, .83, subtitle, **subtitle_font)
 
 ## Adds source
-plt.figtext(.05, .03, "Data source: ECMWF", **smaller_font)
+plt.figtext(.05, .03, "Data source: ECMWF, openweathermap", **smaller_font)
+
+## Adds a horizontal line under the title
+con = ConnectionPatch(xyA=(.05,.88), xyB=(.95,.88), coordsA="figure fraction", coordsB="figure fraction", 
+                      axesA=None, axesB=None, color=font_color, lw=.1)
+ax.add_artist(con)
 
 # Removes top and right axes
 ax.spines['top'].set_visible(False)
@@ -224,9 +272,11 @@ ax.yaxis.label.set_color(font_color)
 ax.xaxis.label.set_color(font_color)
 
 fig.tight_layout()
-## Reduces size of plot to allow for subtitle text
-plt.subplots_adjust(top=0.75, bottom=0.08)
 
-# No need to save the image to S3
-# img_url = saveToS3(plt)
-sendTweet(title, plt)
+## Reduces size of plot to allow for text
+plt.subplots_adjust(top=0.75, bottom=0.10)
+
+if os.environ["DEBUG"] == "True":
+    plt.savefig("temp/graph.png", format='png')
+else:
+    sendTweet(title, plt)
