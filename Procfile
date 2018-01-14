@@ -1,1 +1,1 @@
-web: python stream.py
+worker: python stream.py
