@@ -35,7 +35,7 @@ iterator = twitter_stream.statuses.filter(track="@weathercontext")
 
 for msg in iterator:
 
-	# Gets some data from the tweet
+    # Gets some data from the tweet
     username = msg["user"]["screen_name"]
     status_id = msg["id_str"]
     tweet_contents = msg["text"]
@@ -45,14 +45,14 @@ for msg in iterator:
     print (city)
     if city == None:
         status_text = "@%s Sorry, my programmer wasn't smart enough for me to understand you." % username
-    	t.statuses.update(status=status_text, in_reply_to_status_id=status_id)
+        t.statuses.update(status=status_text, in_reply_to_status_id=status_id)
     elif city not in cities_covered:
         status_text = "@%s I don't have weather data for %s yet. But you seem like a nice person, I'll go fetch it and come back to you." % (username, city)
-    	t.statuses.update(status=status_text, in_reply_to_status_id=status_id)
+        t.statuses.update(status=status_text, in_reply_to_status_id=status_id)
     else:
-    	title, plt = makeGraph(city)
-    	status_text = "@%s %s" % (username, title)
-    	sendTweet(status_text, plt, status_id)
+        title, plt = makeGraph(city)
+        status_text = "@%s %s" % (username, title)
+        sendTweet(status_text, plt, status_id)
 
     print("Tweeting to %s..." % username)
     
