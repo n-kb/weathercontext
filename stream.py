@@ -1,6 +1,6 @@
 from twitter import *
 import os, requests, json
-from tweet import makeGraph, sendTweet
+from utils import makeGraph, sendTweet
 
 cities_covered = ["Berlin"]
 
