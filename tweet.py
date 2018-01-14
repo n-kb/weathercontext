@@ -49,14 +49,6 @@ pd.options.mode.chained_assignment = None
 
 df = pd.read_csv('data/berlin.csv')
 
-# Adds fonts to mpl
-for fontfile in ["VeraSerif", "LiberationSans-Regular"]:
-    path = 'fonts/%s.ttf' % fontfile
-    prop = font_manager.FontProperties(fname=path)
-    mpl.rcParams['font.family'] = prop.get_name()
-
-
-
 colors = {  "lowkey_blue": "#737D99", 
             "dark_blue": "#335CCC", 
             "cringing_blue": "#59DDFF", 
@@ -64,26 +56,22 @@ colors = {  "lowkey_blue": "#737D99",
             "strong_red": "#CC5033"}
 
 font_color = "#676767"
-serif_font = 'Bitstream Vera Serif'
-sans_font = 'Liberation Sans'     
-title_font = {'fontname':serif_font
-             ,'size': 21
-             ,'color': font_color}
-label_font = {'fontname':sans_font
+serif_font = 'Ranga'
+sans_fontfile = 'fonts/LiberationSans-Regular.ttf'     
+serif_fontfile = 'fonts/VeraSerif.ttf'     
+title_font = {'fontproperties': font_manager.FontProperties(fname=serif_fontfile, size=21)
+              ,'color': font_color
+             }
+label_font = {'fontproperties': font_manager.FontProperties(fname=sans_fontfile, size=10)
              ,'color': font_color
-             ,'size': 10}
+             }
 
-label_font_strong = {'fontname':sans_font
+label_font_strong = {'fontproperties': font_manager.FontProperties(fname=sans_fontfile, size=10)
              ,'color': 'black'
-             ,'size': 10}
+             }
 
-annotate_font = {'fontname':sans_font
-             ,'color': font_color
-             ,'size': 7}
-
-smaller_font = {'fontname':sans_font
+smaller_font = {'fontproperties': font_manager.FontProperties(fname=sans_fontfile, size=7)
                 ,'color': font_color
-                , 'size': 7
                 , 'weight': 'bold'}
 
 
@@ -242,10 +230,10 @@ ax.yaxis.set_major_formatter(mticker.FormatStrFormatter('%d°C'))
 
 # Sets labels fonts for axes
 for label in ax.get_xticklabels():
-    label.set_fontproperties(font_manager.FontProperties(family=sans_font))
+    label.set_fontproperties(font_manager.FontProperties(fname=sans_fontfile))
     label.set_fontsize(9) 
 for label in ax.get_yticklabels():
-    label.set_fontproperties(font_manager.FontProperties(family=sans_font))
+    label.set_fontproperties(font_manager.FontProperties(fname=sans_fontfile))
     label.set_fontsize(9) 
 
 ## Adds title
