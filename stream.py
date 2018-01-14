@@ -44,7 +44,7 @@ for msg in iterator:
     city = getCityFromTweet(tweet_contents.replace("@weathercontext", ""))
     print (city)
     if city == None:
-        status_text = "@%s Sorry, my programmer wasn't smart enough for me to understand you." % username
+        status_text = "@%s Sorry, my programmer wasn't smart enough for me to understand you. I can only process sentences that contain city names." % username
         t.statuses.update(status=status_text, in_reply_to_status_id=status_id)
     elif city not in cities_covered:
         status_text = "@%s I don't have weather data for %s yet. But you seem like a nice person, I'll go fetch it and come back to you." % (username, city)
