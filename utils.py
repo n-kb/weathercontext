@@ -157,6 +157,9 @@ def makeGraph(city):
     max_id = df_today["Value at MetPoint"].idxmax()
     max_year = df_today.loc[max_id]["Date"]
 
+    abs_max = -100
+    abs_min = 100
+
 
     colors = {  "lowkey_blue": "#737D99", 
                 "dark_blue": "#335CCC", 
@@ -201,6 +204,12 @@ def makeGraph(city):
         if year % 4 == 0:
             df_year = df_year.loc[((df_year['Date'] != str(year) + '-02-29'))]
         
+        # Gets abs max and mins
+        if df_year["Value at MetPoint"].max() > abs_max:
+            abs_max = df_year["Value at MetPoint"].max()
+        if df_year["Value at MetPoint"].min() < abs_min:
+            abs_min = df_year["Value at MetPoint"].min()
+
         # Create a new column with day number
         num_days = df_year['Date'].count()
         df_year["day_num"] = np.arange(1,num_days + 1)
@@ -280,7 +289,7 @@ def makeGraph(city):
 
     plt.annotate("Each line represents the temperature for a year.\nThis is 2016, warmest year on record.", 
                  xy=(yday - 9, df.loc[(df["Date"] == "2016-" + (today - dt.timedelta(days=9)).strftime("%m-%d"))]["Value at MetPoint"]), 
-                 xytext=(yday - 8, max_temp+10),
+                 xytext=(yday - 8, abs_max+2),
                  horizontalalignment='left', 
                  verticalalignment='top',
                  **label_font,
@@ -292,7 +301,7 @@ def makeGraph(city):
 
     plt.annotate("And this is 1979.\nYellow lines are for older years,\nred ones for more recent ones.", 
                  xy=(yday - 3, df.loc[(df["Date"] == "1979-" + (today - dt.timedelta(days=3)).strftime("%m-%d"))]["Value at MetPoint"]), 
-                 xytext=(yday - 8, max_temp - 20),
+                 xytext=(yday - 8, abs_min + 1),
                  horizontalalignment='left', 
                  verticalalignment='top',
                  **label_font,
@@ -304,6 +313,9 @@ def makeGraph(city):
 
     # Focuses on today
     ax.set_xlim([yday - 10,yday + 5])
+
+    # Forces spaces on top of chart
+    ax.set_ylim([abs_min - 5, abs_max + 4])
 
     # Set x axis ticks
     times = pd.date_range(today - dt.timedelta(days=10), periods=15, freq='1d')
