@@ -9,9 +9,6 @@ def getCityFromTweet(s):
     r = requests.get(url)
     json_data = json.loads(r.text)
 
-    print (s)
-    print (json_data)
-
     # Parses the response from Dandelion and looks for matches of the
     # type http://dbpedia.org/ontology/Place, then returns the first
     # match's name.
