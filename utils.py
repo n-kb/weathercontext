@@ -12,7 +12,7 @@ import datetime as dt
 from scipy.interpolate import interp1d
 from colour import Color
 import MySQLdb
-import requests, io, json, boto3, os, csv
+import requests, io, json, boto3, os, csv, urlparse
 from peewee import *
 import matplotlib.dates as mdates
 from twitter import *
