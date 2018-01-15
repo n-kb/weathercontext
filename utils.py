@@ -14,6 +14,7 @@ from colour import Color
 import MySQLdb
 import requests, io, json, boto3, os, csv
 import urllib.parse as urlparse
+import peewee
 from peewee import *
 import matplotlib.dates as mdates
 from twitter import *
