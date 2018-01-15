@@ -1,8 +1,6 @@
 from twitter import *
 import os, requests, json
-from utils import makeGraph, sendTweet
-
-cities_covered = ["Berlin"]
+from utils import sendTweet, CITIES
 
 def getCityFromTweet(s):
     url = "https://api.dandelion.eu/datatxt/nex/v1/?text=%s&include=types&token=%s" % (s, os.environ["DANDELION"])
@@ -43,13 +41,11 @@ for msg in iterator:
     if city == None:
         status_text = "@%s 🐶 Sorry, my programmer wasn't smart enough for me to understand you. I can only process sentences that contain city names." % username
         t.statuses.update(status=status_text, in_reply_to_status_id=status_id)
-    elif city not in cities_covered:
+    elif city not in CITIES:
         status_text = "@%s I don't have weather data for %s yet. But you seem like a nice person, I'll go fetch it and come back to you. 🐕🐕🐕" % (username, city)
         t.statuses.update(status=status_text, in_reply_to_status_id=status_id)
     else:
-        title, plt = makeGraph(city)
-        status_text = "@%s 🐕 %s" % (username, title)
-        sendTweet(status_text, plt, status_id)
+        sendTweet(city, username, status_id)
 
     print("Tweeting to %s..." % username)
     

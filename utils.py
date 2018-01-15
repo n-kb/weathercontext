@@ -11,40 +11,18 @@ import matplotlib.ticker as mticker
 import datetime as dt
 from scipy.interpolate import interp1d
 from colour import Color
-from playhouse.sqlite_ext import SqliteExtDatabase
 import MySQLdb
-import requests, json, io, boto3, os, csv
+import requests, io, json, boto3, os, csv
 from peewee import *
 import matplotlib.dates as mdates
 from twitter import *
 
-CITIES = ["Berlin"]
+if 'CLEARDB_DATABASE_URL' not in os.environ:
+    from playhouse.sqlite_ext import SqliteExtDatabase
 
-def getTemp(city):
+CITIES = ["Berlin","Paris","Stockholm","Bonn","Marseille","Lyon","Oslo","Brussels","Amsterdam","Rome","Naples","Tirana","Belgrade","Warsaw","Prague","Madrid","Tunis","Algiers","Douala","Lagos","Kinshasa","Lomé","Bangui"]
 
-    url = "http://api.openweathermap.org/data/2.5/weather?q=%s&APPID=%s" % (city, os.environ["OWMKEY"])
-    r = requests.get(url)
-    json_data = json.loads(r.text)
-    # returns temperature in Celsius
-    return json_data["main"]["temp"] - 272.15
-
-def saveToS3(plt, city):
-    img_data = io.BytesIO()
-    plt.savefig(img_data, format='png')
-    img_data.seek(0)
-    filename = "%s-%s.png" % (dt.date.today().strftime("%Y-%m-%d"), city)
-    client = boto3.client(
-        's3',
-        aws_access_key_id=os.environ["ACCESS_KEY"],
-        aws_secret_access_key=os.environ["SECRET_KEY"]
-    )
-    s3 = boto3.resource('s3')
-    bucket = s3.Bucket(os.environ["BUCKET_NAME"])
-    bucket.put_object(Body=img_data, ContentType='image/png', Key=filename, ACL='public-read')
-    return "https://s3-eu-west-1.amazonaws.com/weathercontext/" + filename
-
-def storeResult(image_url, city, title, today):
-
+def dbInit():
     if 'CLEARDB_DATABASE_URL' in os.environ:
         PROD = True
         url = urlparse.urlparse(os.environ['CLEARDB_DATABASE_URL'])
@@ -69,6 +47,39 @@ def storeResult(image_url, city, title, today):
     db.connect()
     db.create_tables([CityGraph], safe=True)
 
+    return CityGraph
+
+def getTemp(city):
+
+    url = "http://api.openweathermap.org/data/2.5/weather?q=%s&APPID=%s" % (city, os.environ["OWMKEY"])
+    r = requests.get(url)
+    json_data = json.loads(r.text)
+    # returns temperature in Celsius
+    return json_data["main"]["temp"] - 272.15
+
+def saveToS3(plt, city):
+    img_data = io.BytesIO()
+    plt.savefig(img_data, format='png')
+    img_data.seek(0)
+    filename = "%s-%s.png" % (dt.date.today().strftime("%Y-%m-%d"), city)
+
+    if os.environ["DEBUG"] == "True":
+        plt.savefig("temp/%s" % filename, format='png')
+
+    client = boto3.client(
+        's3',
+        aws_access_key_id=os.environ["ACCESS_KEY"],
+        aws_secret_access_key=os.environ["SECRET_KEY"]
+    )
+    s3 = boto3.resource('s3')
+    bucket = s3.Bucket(os.environ["BUCKET_NAME"])
+    bucket.put_object(Body=img_data, ContentType='image/png', Key=filename, ACL='public-read')
+    return "https://s3-eu-west-1.amazonaws.com/weathercontext/" + filename
+
+def storeResult(image_url, city, title, today):
+
+    CityGraph = dbInit()
+
     try:
         CityGraph.create(
             image_url = image_url,
@@ -77,21 +88,30 @@ def storeResult(image_url, city, title, today):
             date = today
         )
         print ("\033[92mInserted data for %s.\033[0m" % city)
-        
+
     except IntegrityError:
         # Could not insert, probably bc it already exists
         print ("\033[93mCould not insert data for %s.\033[0m" % city)
         pass
 
-def makeTweet(city):
-    print (city)
+def sendTweet(city, username = None, reply_to = None):
 
-def sendTweet(status_text, plt, reply_to = None):
+    CityGraph = dbInit()
     
-    # Saves images to io object
-    imagedata = io.BytesIO()
-    plt.savefig(imagedata, format='png')
-    imagedata.seek(0)
+    # Fetches image from DB
+    today = dt.date.today()
+    citygraphs = CityGraph.select().where(CityGraph.date == today.strftime("%Y-%m-%d")).where(CityGraph.city == city)
+
+    citygraph = citygraphs[0]
+
+    if reply_to == None:
+        status_text = citygraph.title
+    else:
+        status_text = "@%s Here's the context you asked for! 🐕🐕" % username
+
+    r = requests.get(citygraph.image_url, stream=True)
+    r.raw.decode_content = True
+    imagedata = r.raw.read()
     
     auth = OAuth(os.environ["ACCESS_TOKEN"], os.environ["ACCESS_SECRET"], os.environ["TWITTER_KEY"], os.environ["TWITTER_SECRET"])
 
@@ -101,7 +121,7 @@ def sendTweet(status_text, plt, reply_to = None):
     t_upload = Twitter(domain='upload.twitter.com', auth=auth)
     
     # Sends image to twitter
-    id_img = t_upload.media.upload(media=imagedata.read())["media_id_string"]
+    id_img = t_upload.media.upload(media=imagedata)["media_id_string"]
    
     # Tweets
     t.statuses.update(status=status_text, media_ids=id_img, in_reply_to_status_id=reply_to)
@@ -233,7 +253,7 @@ def makeGraph(city):
         annotation_text = "On %s \nthe temperature reached %d°C."
         plt.annotate(annotation_text % (max_year.strftime("%B %d, %Y,"), max_temp), 
                      xy=(yday, max_temp), 
-                     xytext=(yday+.7, max_temp + 3),
+                     xytext=(yday+.7, max_temp + 1),
                      horizontalalignment='left', 
                      verticalalignment='top',
                      **label_font_strong,
@@ -256,8 +276,8 @@ def makeGraph(city):
 
     # Annotation for the warmest and coldest years
 
-    plt.annotate("Each line represents the temperature for a year.\nThis is 2014, warmest year on record for %s." % city, 
-                 xy=(yday - 9, df.loc[(df["Date"] == "2014-" + (today - dt.timedelta(days=9)).strftime("%m-%d"))]["Value at MetPoint"]), 
+    plt.annotate("Each line represents the temperature for a year.\nThis is 2016, warmest year on record.", 
+                 xy=(yday - 9, df.loc[(df["Date"] == "2016-" + (today - dt.timedelta(days=9)).strftime("%m-%d"))]["Value at MetPoint"]), 
                  xytext=(yday - 8, max_temp+10),
                  horizontalalignment='left', 
                  verticalalignment='top',
@@ -330,5 +350,3 @@ def makeGraph(city):
     image_url = saveToS3(plt, city)
 
     storeResult(image_url, city, title, today)
-
-    return title, plt
