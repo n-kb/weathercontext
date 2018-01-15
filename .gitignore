@@ -2,4 +2,4 @@ venv
 temp
 __pycache__
 *.db
-.~lock.
+*~lock*
