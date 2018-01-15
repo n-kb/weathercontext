@@ -1,8 +1,10 @@
-from utils import makeGraph, sendTweet
+from utils import makeGraph, sendTweet, makeTweet, CITIES
+import os
 
-title, plt = makeGraph("Berlin")
+for city in CITIES:
+    title, plt = makeGraph("Berlin")
 
 if os.environ["DEBUG"] == "True":
     plt.savefig("temp/graph.png", format='png')
 else:
-    sendTweet(title, plt)
+    makeTweet("Berlin")

@@ -11,11 +11,14 @@ import matplotlib.ticker as mticker
 import datetime as dt
 from scipy.interpolate import interp1d
 from colour import Color
-import requests, json, io, boto3, os, csv, peewee
+from playhouse.sqlite_ext import SqliteExtDatabase
+import MySQLdb
+import requests, json, io, boto3, os, csv
+from peewee import *
 import matplotlib.dates as mdates
 from twitter import *
 
-
+CITIES = ["Berlin"]
 
 def getTemp(city):
 
@@ -29,7 +32,7 @@ def saveToS3(plt, city):
     img_data = io.BytesIO()
     plt.savefig(img_data, format='png')
     img_data.seek(0)
-    filename = "%s-%s.png" % (dt.date.today().strftime("%Y-%B-%d"), city)
+    filename = "%s-%s.png" % (dt.date.today().strftime("%Y-%m-%d"), city)
     client = boto3.client(
         's3',
         aws_access_key_id=os.environ["ACCESS_KEY"],
@@ -59,15 +62,29 @@ def storeResult(image_url, city, title, today):
         title = CharField()
         date = DateField()
 
+        class Meta:
+            primary_key = CompositeKey('city', 'date')
+
+
     db.connect()
     db.create_tables([CityGraph], safe=True)
 
-    CityGraph.create(
-        image_url = image_url,
-        city = city,
-        title = title,
-        date = today
-    )
+    try:
+        CityGraph.create(
+            image_url = image_url,
+            city = city,
+            title = title,
+            date = today
+        )
+        print ("\033[92mInserted data for %s.\033[0m" % city)
+        
+    except IntegrityError:
+        # Could not insert, probably bc it already exists
+        print ("\033[93mCould not insert data for %s.\033[0m" % city)
+        pass
+
+def makeTweet(city):
+    print (city)
 
 def sendTweet(status_text, plt, reply_to = None):
     
