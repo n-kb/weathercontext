@@ -66,12 +66,12 @@ def saveToS3(plt, city):
     if os.environ["DEBUG"] == "True":
         plt.savefig("temp/%s" % filename, format='png')
 
-    client = boto3.client(
-        's3',
+    s3_session = boto3.Session(
         aws_access_key_id=os.environ["ACCESS_KEY"],
-        aws_secret_access_key=os.environ["SECRET_KEY"]
+        aws_secret_access_key=os.environ["SECRET_KEY"],
+        region_name='us-east-1'
     )
-    s3 = boto3.resource('s3', region_name='us-east-1')
+    s3 = s3_session.resource('s3')
     bucket = s3.Bucket(os.environ["BUCKET_NAME"])
     bucket.put_object(Body=img_data, ContentType='image/png', Key=filename, ACL='public-read')
     return "https://s3-eu-west-1.amazonaws.com/weathercontext/" + filename
