@@ -8,13 +8,14 @@ from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib.patches import ConnectionPatch
 import matplotlib.font_manager as font_manager
 import matplotlib.ticker as mticker    
-import csv
 import datetime as dt
 from scipy.interpolate import interp1d
 from colour import Color
-import requests, json, io, boto3, os
+import requests, json, io, boto3, os, csv, peewee
 import matplotlib.dates as mdates
 from twitter import *
+
+
 
 def getTemp(city):
 
@@ -24,11 +25,11 @@ def getTemp(city):
     # returns temperature in Celsius
     return json_data["main"]["temp"] - 272.15
 
-def saveToS3(plt):
+def saveToS3(plt, city):
     img_data = io.BytesIO()
     plt.savefig(img_data, format='png')
     img_data.seek(0)
-    filename = dt.date.today().strftime("%Y-%B-%d") + "-Berlin.png"
+    filename = "%s-%s.png" % (dt.date.today().strftime("%Y-%B-%d"), city)
     client = boto3.client(
         's3',
         aws_access_key_id=os.environ["ACCESS_KEY"],
@@ -38,6 +39,35 @@ def saveToS3(plt):
     bucket = s3.Bucket(os.environ["BUCKET_NAME"])
     bucket.put_object(Body=img_data, ContentType='image/png', Key=filename, ACL='public-read')
     return "https://s3-eu-west-1.amazonaws.com/weathercontext/" + filename
+
+def storeResult(image_url, city, title, today):
+
+    if 'CLEARDB_DATABASE_URL' in os.environ:
+        PROD = True
+        url = urlparse.urlparse(os.environ['CLEARDB_DATABASE_URL'])
+        db = peewee.MySQLDatabase(url.path[1:], host=url.hostname, user=url.username, passwd=url.password)
+    else:
+        db = SqliteExtDatabase('weather.db')
+
+    class BaseModel(Model):
+        class Meta:
+            database = db
+
+    class CityGraph(BaseModel):
+        image_url = CharField()
+        city = CharField()
+        title = CharField()
+        date = DateField()
+
+    db.connect()
+    db.create_tables([CityGraph], safe=True)
+
+    CityGraph.create(
+        image_url = image_url,
+        city = city,
+        title = title,
+        date = today
+    )
 
 def sendTweet(status_text, plt, reply_to = None):
     
@@ -279,5 +309,9 @@ def makeGraph(city):
 
     ## Reduces size of plot to allow for text
     plt.subplots_adjust(top=0.75, bottom=0.10)
+
+    image_url = saveToS3(plt, city)
+
+    storeResult(image_url, city, title, today)
 
     return title, plt
