@@ -22,7 +22,21 @@ from twitter import *
 if 'CLEARDB_DATABASE_URL' not in os.environ:
     from playhouse.sqlite_ext import SqliteExtDatabase
 
-CITIES = ["Berlin","Paris","Stockholm","Bonn","Marseille","Lyon","Oslo","Brussels","Amsterdam","Rome","Naples","Tirana","Belgrade","Warsaw","Prague","Madrid","Tunis","Algiers","Douala","Lagos","Kinshasa","Lomé","Bangui"]
+def getCities():
+    cities = {}
+    with open("data/cities.csv") as csv_file:
+        reader = csv.reader(csv_file)
+        # jumps headers
+        next(reader)
+        for row in reader:
+            cities[row[0]] = {
+                "name":row[0],
+                "timezone":row[3],
+                "country":row[4]
+            }
+    return cities
+
+CITIES = getCities()
 
 def dbInit():
     if 'CLEARDB_DATABASE_URL' in os.environ:
@@ -51,9 +65,9 @@ def dbInit():
 
     return CityGraph
 
-def getTemp(city):
+def getTemp(city, country):
 
-    url = "http://api.openweathermap.org/data/2.5/weather?q=%s&APPID=%s" % (city, os.environ["OWMKEY"])
+    url = "http://api.openweathermap.org/data/2.5/weather?q=%s,%s&APPID=%s" % (city, country, os.environ["OWMKEY"])
     r = requests.get(url)
     json_data = json.loads(r.text)
     # returns temperature in Celsius
@@ -101,15 +115,27 @@ def sendTweet(city, username = None, reply_to = None):
     CityGraph = dbInit()
     
     # Fetches image from DB
-    today = dt.date.today()
+    # The time is adapted to the timezone, Heroku works in UTC
+    time_offset = CITIES[city]["timezone"]
+    today = dt.date.today() + dt.timedelta(hours=time_offset)
     citygraphs = CityGraph.select().where(CityGraph.date == today.strftime("%Y-%m-%d")).where(CityGraph.city == city)
 
-    citygraph = citygraphs[0]
+    try:
+        citygraph = citygraphs[0]
+
+    # In case there is no graph for today's data, maybe there is one for yesterday
+    except IndexError:
+        yesterday = today - dt.timedelta(days=1)
+        citygraphs = CityGraph.select().where(CityGraph.date == yesterday.strftime("%Y-%m-%d")).where(CityGraph.city == city)
+        citygraph = citygraphs[0]
+        pass
 
     if reply_to == None:
         status_text = citygraph.title
+    elif yesterday is not None: 
+        status_text = "@%s Here's the context data for %s you wanted! It's yesterday's data because I only refresh my graphs at noon. 🐕🐕" % (username, city)
     else:
-        status_text = "@%s Here's the context you asked for! 🐕🐕" % username
+        status_text = "@%s Here's the context data for %s you wanted! 🐕🐕" % (username, city)
 
     r = requests.get(citygraph.image_url, stream=True)
     r.raw.decode_content = True
@@ -128,13 +154,13 @@ def sendTweet(city, username = None, reply_to = None):
     # Tweets
     t.statuses.update(status=status_text, media_ids=id_img, in_reply_to_status_id=reply_to)
 
-def makeGraph(city):
+def makeGraph(city, country):
     # Prevents panda from producing a warning
     pd.options.mode.chained_assignment = None
 
     df = pd.read_csv('data/%s.csv' % city.lower())
 
-    current_temp = getTemp(city)
+    current_temp = getTemp(city, country)
 
     today = dt.date.today()
 

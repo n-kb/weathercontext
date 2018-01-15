@@ -7,12 +7,17 @@ def getCityFromTweet(s):
     r = requests.get(url)
     json_data = json.loads(r.text)
 
+    try:
     # Parses the response from Dandelion and looks for matches of the
     # type http://dbpedia.org/ontology/Place, then returns the first
     # match's name.
     for annotation in json_data["annotations"]:
         if "http://dbpedia.org/ontology/Place" in annotation["types"]:
             return annotation["label"]
+
+    # In case the reponse from Dandelion has no annotation
+    except KeyError:
+        pass
 
 auth = OAuth(os.environ["ACCESS_TOKEN"], os.environ["ACCESS_SECRET"], os.environ["TWITTER_KEY"], os.environ["TWITTER_SECRET"])
 
@@ -37,7 +42,7 @@ for msg in iterator:
 
     # Parses the city
     city = getCityFromTweet(tweet_contents.replace("@weathercontext", ""))
-    print (city)
+
     if city == None:
         status_text = "@%s 🐶 Sorry, my programmer wasn't smart enough for me to understand you. I can only process sentences that contain city names." % username
         t.statuses.update(status=status_text, in_reply_to_status_id=status_id)
