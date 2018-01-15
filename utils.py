@@ -116,7 +116,7 @@ def sendTweet(city, username = None, reply_to = None):
     
     # Fetches image from DB
     # The time is adapted to the timezone, Heroku works in UTC
-    time_offset = CITIES[city]["timezone"]
+    time_offset = int(CITIES[city]["timezone"])
     today = dt.date.today() + dt.timedelta(hours=time_offset)
     citygraphs = CityGraph.select().where(CityGraph.date == today.strftime("%Y-%m-%d")).where(CityGraph.city == city)
 
