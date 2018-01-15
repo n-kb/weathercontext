@@ -8,12 +8,12 @@ def getCityFromTweet(s):
     json_data = json.loads(r.text)
 
     try:
-    # Parses the response from Dandelion and looks for matches of the
-    # type http://dbpedia.org/ontology/Place, then returns the first
-    # match's name.
-    for annotation in json_data["annotations"]:
-        if "http://dbpedia.org/ontology/Place" in annotation["types"]:
-            return annotation["label"]
+        # Parses the response from Dandelion and looks for matches of the
+        # type http://dbpedia.org/ontology/Place, then returns the first
+        # match's name.
+        for annotation in json_data["annotations"]:
+            if "http://dbpedia.org/ontology/Place" in annotation["types"]:
+                return annotation["label"]
 
     # In case the reponse from Dandelion has no annotation
     except KeyError:
