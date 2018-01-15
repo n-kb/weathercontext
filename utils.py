@@ -270,10 +270,10 @@ def makeGraph(city, country):
     if (diff_from_avg < -2):
         todays_text = "Today at noon, the temperature\nwas %d°C, lower than the\n1979-2000 average of %.2f°C\nfor a %s."
         title = "It's %d°C today in %s, pretty cold for a %s!"  % (current_temp, city, today.strftime("%d %B"))
-    elif (diff_from_avg < 2):
+    elif (diff_from_avg <= 2):
         todays_text = "Today at noon, the temperature\nwas %d°C, close to the\n1979-2000 average of %.2f°C\nfor a %s."
         title = "It's %d°C today in %s, about average %s for a %s." % (current_temp, city, hot_or_cold, today.strftime("%d %B"))
-    elif (diff_from_avg < 5):
+    elif (diff_from_avg <= 5):
         todays_text = "Today at noon, the temperature\nwas %d°C, above the\n1979-2000 average of %.2f°C\nfor a %s."
         title = "It's %d°C today in %s, pretty warm for a %s." % (current_temp, city, today.strftime("%d %B"))
     else:
