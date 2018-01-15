@@ -352,3 +352,5 @@ def makeGraph(city):
     image_url = saveToS3(plt, city)
 
     storeResult(image_url, city, title, today)
+
+    plt.close()

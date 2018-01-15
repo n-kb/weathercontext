@@ -5,4 +5,4 @@ for city in CITIES:
     makeGraph(city)
 
 if os.environ["DEBUG"] == "False":
-    makeTweet("Berlin")
+    sendTweet("Berlin")
