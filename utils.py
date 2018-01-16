@@ -119,7 +119,7 @@ def sendTweet(city, username = None, reply_to = None):
     # Fetches image from DB
     # The time is adapted to the timezone, Heroku works in UTC
     time_offset = int(CITIES[city]["timezone"])
-    today = dt.date.today() + dt.timedelta(hours=time_offset)
+    today = dt.datetime.now() + dt.timedelta(hours=time_offset)
     citygraphs = CityGraph.select().where(CityGraph.date == today.strftime("%Y-%m-%d")).where(CityGraph.city == city)
 
     # If there is a graph ready for the day
@@ -130,7 +130,6 @@ def sendTweet(city, username = None, reply_to = None):
     else:
         yesterday = today - dt.timedelta(days=1)
         citygraphs = CityGraph.select().where(CityGraph.date == yesterday.strftime("%Y-%m-%d")).where(CityGraph.city == city)
-        print(yesterday.strftime("%Y-%m-%d"))
         if (citygraphs.count() == 1):
             citygraph = citygraphs[0]
         else:
