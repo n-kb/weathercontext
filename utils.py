@@ -130,7 +130,7 @@ def sendTweet(city, username = None, reply_to = None):
     else:
         yesterday = today - dt.timedelta(days=1)
         citygraphs = CityGraph.select().where(CityGraph.date == yesterday.strftime("%Y-%m-%d")).where(CityGraph.city == city)
-        
+        print(yesterday.strftime("%Y-%m-%d"))
         if (citygraphs.count() == 1):
             citygraph = citygraphs[0]
         else:
@@ -152,7 +152,7 @@ def sendTweet(city, username = None, reply_to = None):
         imagedata = r.raw.read()
     
     auth = OAuth(os.environ["ACCESS_TOKEN"], os.environ["ACCESS_SECRET"], os.environ["TWITTER_KEY"], os.environ["TWITTER_SECRET"])
-    print (status_text)
+
     # Authenticate to twitter
     t = Twitter(auth=auth)
 
