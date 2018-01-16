@@ -13,7 +13,13 @@ def getCityFromTweet(s):
         # match's name.
         for annotation in json_data["annotations"]:
             if "http://dbpedia.org/ontology/Place" in annotation["types"]:
-                return annotation["label"]
+                city = annotation["label"]
+                
+                # Exception, Dandelion gives the US state for Phoenix
+                if (city == "Phoenix, Arizona"):
+                    city = "Phoenix"
+
+                return city
 
     # In case the reponse from Dandelion has no annotation
     except KeyError:
