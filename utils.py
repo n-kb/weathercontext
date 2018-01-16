@@ -139,7 +139,7 @@ def sendTweet(city, username = None, reply_to = None):
     if no_graph == 1:
         status_text = "@%s 🐕 I have data for %s but the first contextual report will be created at noon local time. Check back later!" % (username, city)
     else:
-        if reply_to == None:
+        if username == None:
             status_text = citygraph.title
         elif yesterday is not None: 
             status_text = "@%s Here's the context data for %s you wanted! It's yesterday's data because I only refresh my graphs at noon local time. 🐕🐕" % (username, city)
