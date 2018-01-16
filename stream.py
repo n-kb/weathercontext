@@ -16,8 +16,11 @@ def getCityFromTweet(s):
                 city = annotation["label"]
                 
                 # Exception, Dandelion gives the US state for Phoenix
+                # And answers in Italian for Santiago
                 if (city == "Phoenix, Arizona"):
                     city = "Phoenix"
+                elif (city == "Santiago del Cile" or city == "Santiago de Chile"):
+                    city = "Santiago"
 
                 return city
 
