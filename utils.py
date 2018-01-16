@@ -113,6 +113,8 @@ def storeResult(image_url, city, title, today):
 def sendTweet(city, username = None, reply_to = None):
 
     CityGraph = dbInit()
+    no_graph = 0
+    yesterday = None
     
     # Fetches image from DB
     # The time is adapted to the timezone, Heroku works in UTC
@@ -120,29 +122,37 @@ def sendTweet(city, username = None, reply_to = None):
     today = dt.date.today() + dt.timedelta(hours=time_offset)
     citygraphs = CityGraph.select().where(CityGraph.date == today.strftime("%Y-%m-%d")).where(CityGraph.city == city)
 
-    try:
+    # If there is a graph ready for the day
+    if (citygraphs.count() == 1):
         citygraph = citygraphs[0]
 
     # In case there is no graph for today's data, maybe there is one for yesterday
-    except IndexError:
+    else:
         yesterday = today - dt.timedelta(days=1)
         citygraphs = CityGraph.select().where(CityGraph.date == yesterday.strftime("%Y-%m-%d")).where(CityGraph.city == city)
-        citygraph = citygraphs[0]
-        pass
+        
+        if (citygraphs.count() == 1):
+            citygraph = citygraphs[0]
+        else:
+            no_graph = 1
 
-    if reply_to == None:
-        status_text = citygraph.title
-    elif yesterday is not None: 
-        status_text = "@%s Here's the context data for %s you wanted! It's yesterday's data because I only refresh my graphs at noon. 🐕🐕" % (username, city)
+
+    if no_graph == 1:
+        status_text = "@%s 🐕 I have data for %s but the first contextual report will be created at noon local time. Check back later!" % (username, city)
     else:
-        status_text = "@%s Here's the context data for %s you wanted! 🐕🐕" % (username, city)
+        if reply_to == None:
+            status_text = citygraph.title
+        elif yesterday is not None: 
+            status_text = "@%s Here's the context data for %s you wanted! It's yesterday's data because I only refresh my graphs at noon local time. 🐕🐕" % (username, city)
+        else:
+            status_text = "@%s Here's the context data for %s you wanted! 🐕🐕" % (username, city)
 
-    r = requests.get(citygraph.image_url, stream=True)
-    r.raw.decode_content = True
-    imagedata = r.raw.read()
+        r = requests.get(citygraph.image_url, stream=True)
+        r.raw.decode_content = True
+        imagedata = r.raw.read()
     
     auth = OAuth(os.environ["ACCESS_TOKEN"], os.environ["ACCESS_SECRET"], os.environ["TWITTER_KEY"], os.environ["TWITTER_SECRET"])
-
+    print (status_text)
     # Authenticate to twitter
     t = Twitter(auth=auth)
 
