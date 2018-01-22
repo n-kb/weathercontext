@@ -3,7 +3,7 @@ import os, requests, json
 from utils import sendTweet, CITIES
 
 def getCityFromTweet(s):
-    url = "https://api.dandelion.eu/datatxt/nex/v1/?text=%s&include=types&token=%s" % (s, os.environ["DANDELION"])
+    url = "https://api.dandelion.eu/datatxt/nex/v1/?text=%s&include=types&lang=en&token=%s" % (s, os.environ["DANDELION"])
     r = requests.get(url)
     json_data = json.loads(r.text)
 
