@@ -3,6 +3,12 @@ import os, requests, json
 from utils import sendTweet, CITIES
 
 def getCityFromTweet(s):
+
+    # Checks for the name of the city in the tweet
+    for city in CITIES:
+        if city.lower() in s.lower():
+            return city
+
     url = "https://api.dandelion.eu/datatxt/nex/v1/?text=%s&include=types&lang=en&token=%s" % (s, os.environ["DANDELION"])
     r = requests.get(url)
     json_data = json.loads(r.text)
@@ -14,13 +20,6 @@ def getCityFromTweet(s):
         for annotation in json_data["annotations"]:
             if "http://dbpedia.org/ontology/Place" in annotation["types"]:
                 city = annotation["label"]
-                
-                # Exception, Dandelion gives the US state for Phoenix
-                # And answers in Italian for Santiago
-                if (city == "Phoenix, Arizona"):
-                    city = "Phoenix"
-                elif (city == "Santiago del Cile" or city == "Santiago de Chile"):
-                    city = "Santiago"
 
                 return city
 
@@ -28,38 +27,39 @@ def getCityFromTweet(s):
     except KeyError:
         pass
 
-auth = OAuth(os.environ["ACCESS_TOKEN"], os.environ["ACCESS_SECRET"], os.environ["TWITTER_KEY"], os.environ["TWITTER_SECRET"])
+if __name__ == "__main__":
+    auth = OAuth(os.environ["ACCESS_TOKEN"], os.environ["ACCESS_SECRET"], os.environ["TWITTER_KEY"], os.environ["TWITTER_SECRET"])
 
-# Authentifies with Twitter
-t = Twitter(auth=auth)
+    # Authentifies with Twitter
+    t = Twitter(auth=auth)
 
-# And with twitter stream
-twitter_stream = TwitterStream(auth=auth, domain='stream.twitter.com')
+    # And with twitter stream
+    twitter_stream = TwitterStream(auth=auth, domain='stream.twitter.com')
 
-# And with twitter upload 
-t_upload = Twitter(domain='upload.twitter.com', auth=auth)
+    # And with twitter upload 
+    t_upload = Twitter(domain='upload.twitter.com', auth=auth)
 
-# Gets only the mentions to the account
-iterator = twitter_stream.statuses.filter(track="@weathercontext")
+    # Gets only the mentions to the account
+    iterator = twitter_stream.statuses.filter(track="@weathercontext")
 
-for msg in iterator:
+    for msg in iterator:
 
-    # Gets some data from the tweet
-    username = msg["user"]["screen_name"]
-    status_id = msg["id_str"]
-    tweet_contents = msg["text"]
+        # Gets some data from the tweet
+        username = msg["user"]["screen_name"]
+        status_id = msg["id_str"]
+        tweet_contents = msg["text"]
 
-    # Parses the city
-    city = getCityFromTweet(tweet_contents.replace("@weathercontext", ""))
+        # Parses the city
+        city = getCityFromTweet(tweet_contents.replace("@weathercontext", ""))
 
-    if city == None:
-        status_text = "@%s 🐶 Sorry, my programmer wasn't smart enough for me to understand you. I can only process sentences that contain city names." % username
-        t.statuses.update(status=status_text, in_reply_to_status_id=status_id)
-    elif city not in CITIES:
-        status_text = "@%s I don't have weather data for %s yet. But you seem like a nice person, I'll go fetch it and come back to you. 🐕🐕🐕" % (username, city)
-        t.statuses.update(status=status_text, in_reply_to_status_id=status_id)
-    else:
-        sendTweet(city, username, status_id)
+        if city == None:
+            status_text = "@%s 🐶 Sorry, my programmer wasn't smart enough for me to understand you. I can only process sentences that contain city names." % username
+            t.statuses.update(status=status_text, in_reply_to_status_id=status_id)
+        elif city not in CITIES:
+            status_text = "@%s I don't have weather data for %s yet. But you seem like a nice person, I'll go fetch it and come back to you. 🐕🐕🐕" % (username, city)
+            t.statuses.update(status=status_text, in_reply_to_status_id=status_id)
+        else:
+            sendTweet(city, username, status_id)
 
-    print("Tweeting to %s..." % username)
-    
+        print("Tweeting to %s..." % username)
+        
