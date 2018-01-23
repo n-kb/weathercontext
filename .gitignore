@@ -3,3 +3,4 @@ temp
 __pycache__
 *.db
 *~lock*
+.cache
