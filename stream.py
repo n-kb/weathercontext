@@ -1,6 +1,6 @@
 from twitter import *
 import os, requests, json
-from utils import sendTweet, CITIES, storeRequest
+from utils import sendTweet, CITIES
 
 def getCityFromTweet(s):
 
@@ -58,7 +58,6 @@ if __name__ == "__main__":
         elif city not in CITIES:
             status_text = "@%s I don't have weather data for %s yet. But you seem like a nice person, I'll go fetch it and come back to you. 🐕🐕🐕" % (username, city)
             t.statuses.update(status=status_text, in_reply_to_status_id=status_id)
-            storeRequest(city, username)
         else:
             sendTweet(city, username, status_id)
 

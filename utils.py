@@ -59,37 +59,12 @@ def dbInit():
         class Meta:
             primary_key = CompositeKey('city', 'date')
 
-    class CityRequest(BaseModel):
-        city = CharField()
-        user = CharField()
-        date_created = DateField(default=dt.datetime.utcnow())
-        satisfied = BooleanField(default=False)
-
-        class Meta:
-            primary_key = CompositeKey('city', 'user')
-
 
     db.connect()
-    db.create_tables([CityGraph, CityRequest], safe=True)
+    db.create_tables([CityGraph], safe=True)
 
-    return CityGraph, CityRequest
-
-def storeRequest(city, user):
-
-    CityGraph, CityRequest = dbInit()
-
-    try:
-        CityRequest.create(
-            user = user,
-            city = city
-        )
-        print ("\033[92mInserted request for %s.\033[0m" % city)
-
-    except IntegrityError:
-        # Could not insert, probably bc it already exists
-        print ("\033[93mCould not insert request for %s.\033[0m" % city)
-        pass
-
+    return CityGraph
+    
 
 def getTemp(city, country):
 
@@ -124,7 +99,7 @@ def saveToS3(plt, city):
 
 def storeResult(image_url, city, title, today):
 
-    CityGraph, CityRequest = dbInit()
+    CityGraph = dbInit()
 
     try:
         CityGraph.create(
