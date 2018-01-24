@@ -12,7 +12,7 @@ import datetime as dt
 from scipy.interpolate import interp1d
 from colour import Color
 import MySQLdb
-import requests, io, json, boto3, os, csv
+import requests, io, json, boto3, os, csv, math
 import urllib.parse as urlparse
 import peewee
 from peewee import *
@@ -65,6 +65,17 @@ def dbInit():
 
     return CityGraph
     
+def getDistance(lon1, lat1, lon2, lat2):
+    radius = 6371 # km
+
+    dlat = math.radians(lat2-lat1)
+    dlon = math.radians(lon2-lon1)
+    a = math.sin(dlat/2) * math.sin(dlat/2) + math.cos(math.radians(lat1)) \
+        * math.cos(math.radians(lat2)) * math.sin(dlon/2) * math.sin(dlon/2)
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    d = radius * c
+    
+    return math.floor(d/10) * 10
 
 def getTemp(city, country):
 
