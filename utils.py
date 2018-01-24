@@ -32,7 +32,9 @@ def getCities():
             cities[row[0]] = {
                 "name":row[0],
                 "timezone":row[3],
-                "country":row[4]
+                "country":row[4],
+                "lat": float(row[2]),
+                "lng": float(row[1])
             }
     return cities
 
@@ -64,7 +66,29 @@ def dbInit():
     db.create_tables([CityGraph], safe=True)
 
     return CityGraph
-    
+
+def geoloc (s):
+    url = "http://nominatim.openstreetmap.org/search/?format=json&q=%s&limit=1" % s
+    r = requests.get(url)
+    json_data = json.loads(r.text)
+    lng = json_data[0]["lon"]
+    lat = json_data[0]["lat"]
+    return (float(lng), float(lat))
+
+def findClosest(city):
+    lng, lat = geoloc(city)
+
+    min_dist = 9999999
+
+    for city_destination in CITIES:
+        dist = getDistance(lng, lat, CITIES[city_destination]["lng"], CITIES[city_destination]["lat"])
+        if dist < min_dist:
+            min_dist = dist
+            closest_city = CITIES[city_destination]["name"]
+
+    return closest_city, min_dist
+
+
 def getDistance(lon1, lat1, lon2, lat2):
     radius = 6371 # km
 

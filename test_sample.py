@@ -20,3 +20,9 @@ def test_cityDistance():
 	paris = [2.352222,48.856614]
 
 	assert (utils.getDistance(paris[0], paris[1], london[0], london[1]) == 340)
+
+def test_findClosest():
+	assert (utils.findClosest("Cologne") == ("Bonn", 20))
+
+def test_geoloc():
+	assert (utils.geoloc("Cologne") == (6.959974, 50.938361))
