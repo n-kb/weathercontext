@@ -40,6 +40,33 @@ def getCities():
 
 CITIES = getCities()
 
+def getGif():
+    
+    # Gets image from Giphy
+    token = os.environ["GIPHY"]
+    
+    url = "https://api.giphy.com/v1/gifs/random?api_key=%s&tag=woot&rating=g" % token
+    
+    r = requests.get(url)
+    json_data = json.loads(r.text)
+
+    gif_url = json_data["data"]["image_url"]
+
+    # Sends the image to Twitter
+    r = requests.get(gif_url, stream=True)
+    r.raw.decode_content = True
+    imagedata = r.raw.read()
+
+    auth = OAuth(os.environ["ACCESS_TOKEN"], os.environ["ACCESS_SECRET"], os.environ["TWITTER_KEY"], os.environ["TWITTER_SECRET"])
+
+    # Authenticate to twitter
+    t_upload = Twitter(domain='upload.twitter.com', auth=auth)
+    
+    # Sends image to twitter
+    id_img = t_upload.media.upload(media=imagedata)["media_id_string"]
+
+    return id_img
+
 def dbInit():
     if 'CLEARDB_DATABASE_URL' in os.environ:
         PROD = True
@@ -121,15 +148,15 @@ def saveToS3(plt, city):
 
     if os.environ["DEBUG"] == "True":
         plt.savefig("temp/%s" % filename, format='png')
-
-    s3_session = boto3.Session(
-        aws_access_key_id=os.environ["ACCESS_KEY"],
-        aws_secret_access_key=os.environ["SECRET_KEY"],
-        region_name='us-east-1'
-    )
-    s3 = s3_session.resource('s3')
-    bucket = s3.Bucket(os.environ["BUCKET_NAME"])
-    bucket.put_object(Body=img_data, ContentType='image/png', Key=filename, ACL='public-read')
+    else:
+        s3_session = boto3.Session(
+            aws_access_key_id=os.environ["ACCESS_KEY"],
+            aws_secret_access_key=os.environ["SECRET_KEY"],
+            region_name='us-east-1'
+        )
+        s3 = s3_session.resource('s3')
+        bucket = s3.Bucket(os.environ["BUCKET_NAME"])
+        bucket.put_object(Body=img_data, ContentType='image/png', Key=filename, ACL='public-read')
     return "https://s3-eu-west-1.amazonaws.com/weathercontext/" + filename
 
 def storeResult(image_url, city, title, today):
@@ -150,7 +177,7 @@ def storeResult(image_url, city, title, today):
         print ("\033[93mCould not insert data for %s.\033[0m" % city)
         pass
 
-def sendTweet(city, username = None, reply_to = None):
+def sendTweet(city, username = None, reply_to = None, new_record = False):
 
     CityGraph = dbInit()
     no_graph = 0
@@ -197,11 +224,20 @@ def sendTweet(city, username = None, reply_to = None):
 
     t_upload = Twitter(domain='upload.twitter.com', auth=auth)
     
+    # List of image ids
+    img_ids = []
+
     # Sends image to twitter
-    id_img = t_upload.media.upload(media=imagedata)["media_id_string"]
+    img_ids.append(t_upload.media.upload(media=imagedata)["media_id_string"])
+
+    if new_record == True:
+        img_ids.append(getGif())
    
     # Tweets
-    t.statuses.update(status=status_text, media_ids=id_img, in_reply_to_status_id=reply_to)
+    if os.environ["DEBUG"] == "False":
+        t.statuses.update(status=status_text, media_ids=img_ids, in_reply_to_status_id=reply_to)
+    else:
+        return status_text, img_ids
 
 def makeGraph(city, country):
     # Prevents panda from producing a warning
@@ -212,6 +248,7 @@ def makeGraph(city, country):
     current_temp = getTemp(city, country)
 
     today = dt.date.today()
+    new_record = False
 
     # Converts date col to datetime
     df["Date"] = pd.to_datetime(df["Date"], format='%Y%m%d', errors='ignore')
@@ -333,6 +370,7 @@ def makeGraph(city, country):
     if (current_temp > max_temp):
         todays_text = "Today's record of %d° \nis much higher \nthan the 1979-2000 \naverage of %.2f°C\nfor a %s."
         title = "It's %d°C today in %s, new record for a %s!" % (current_temp, city, today.strftime("%d %B"))
+        new_record = True
         
     else:
         # Annotation for max value
@@ -441,3 +479,5 @@ def makeGraph(city, country):
     storeResult(image_url, city, title, today)
 
     plt.close()
+
+    return new_record
