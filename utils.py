@@ -205,6 +205,7 @@ def sendTweet(city, username = None, reply_to = None, new_record = False):
 
     if no_graph == 1:
         status_text = "@%s 🐕 I have data for %s but the first contextual report will be created at noon local time. Check back later!" % (username, city)
+        imagedata = None
     else:
         if username == None:
             status_text = citygraph.title
@@ -222,16 +223,17 @@ def sendTweet(city, username = None, reply_to = None, new_record = False):
     # Authenticate to twitter
     t = Twitter(auth=auth)
 
-    t_upload = Twitter(domain='upload.twitter.com', auth=auth)
-    
     # List of image ids
     img_ids = []
 
-    # Sends image to twitter
-    img_ids.append(t_upload.media.upload(media=imagedata)["media_id_string"])
+    if imagedata is not None:
+        t_upload = Twitter(domain='upload.twitter.com', auth=auth)
 
-    if new_record == True:
-        img_ids.append(getGif())
+        # Sends image to twitter
+        img_ids.append(t_upload.media.upload(media=imagedata)["media_id_string"])
+
+        if new_record == True:
+            img_ids.append(getGif())
    
     # Tweets
     if os.environ["DEBUG"] == "False":
