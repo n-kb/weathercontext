@@ -148,7 +148,7 @@ def saveToS3(plt, city):
 
     if os.environ["DEBUG"] == "local":
         plt.savefig("temp/%s" % filename, format='png')
-    else:
+    elif os.environ["DEBUG"] == "False":
         s3_session = boto3.Session(
             aws_access_key_id=os.environ["ACCESS_KEY"],
             aws_secret_access_key=os.environ["SECRET_KEY"],
