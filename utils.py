@@ -235,6 +235,8 @@ def sendTweet(city, username = None, reply_to = None, new_record = False):
         if new_record == True:
             img_ids.append(getGif())
    
+    img_ids = "[%s]" % ",".join(img_ids)
+    
     # Tweets
     if os.environ["DEBUG"] == "False":
         t.statuses.update(status=status_text, media_ids=img_ids, in_reply_to_status_id=reply_to)

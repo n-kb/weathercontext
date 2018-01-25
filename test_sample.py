@@ -38,5 +38,5 @@ def test_cityLoop():
 
 def test_sendTweet():
 	tweet_text, media_ids = utils.sendTweet("London")
-	assert(type(media_ids) == list)
+	assert(media_ids[0] == "[")
 	assert(type(tweet_text) == str)
