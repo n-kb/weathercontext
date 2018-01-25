@@ -146,7 +146,7 @@ def saveToS3(plt, city):
     img_data.seek(0)
     filename = "%s-%s.png" % (dt.date.today().strftime("%Y-%m-%d"), city)
 
-    if os.environ["DEBUG"] == "True":
+    if os.environ["DEBUG"] == "local":
         plt.savefig("temp/%s" % filename, format='png')
     else:
         s3_session = boto3.Session(
