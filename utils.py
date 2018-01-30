@@ -294,7 +294,10 @@ def makeGraph(city, country, date=None, current_temp=None):
         ax.plot(year, temp, color=color, marker="o")
 
     # Plots today's value
-    ax.scatter(2018, current_temp, marker='o', color = colors["strong_red"])
+    color = color_ramp[int(current_temp*100-max_temp*100)].rgb
+    if current_temp >= max_temp:
+        color = colors["strong_red"]
+    ax.scatter(2018, current_temp, marker='o', color = color, edgecolor='black', linewidth='.5')
 
     # Fits the x axis
     ax.set_xlim([1979 - 2, 2018 + 15])
@@ -359,14 +362,14 @@ def makeGraph(city, country, date=None, current_temp=None):
         new_record = True
     
     if current_temp >= today_average:
-        annote_offset = -2
+        annote_offset = current_temp - 2
     else:
-        annote_offset = 2
+        annote_offset = today_average - 1
 
     # Annotation for today's value
     plt.annotate(todays_text % (current_temp, today_average, today.strftime("%d %B")), 
                  xy=(2018, current_temp), 
-                 xytext=(2022, current_temp + annote_offset),
+                 xytext=(2022, annote_offset),
                  horizontalalignment='left', 
                  verticalalignment='top',
                  **label_font_strong,
