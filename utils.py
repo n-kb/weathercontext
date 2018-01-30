@@ -357,11 +357,16 @@ def makeGraph(city, country, date=None, current_temp=None):
         todays_text = "Today's record of %d° \nis much higher \nthan the 1979-2000 \naverage of %.2f°C\nfor a %s."
         title = "It's %d°C today in %s, new record for a %s!" % (current_temp, city, today.strftime("%d %B"))
         new_record = True
-        
+    
+    if current_temp >= today_average:
+        annote_offset = -2
+    else:
+        annote_offset = 2
+
     # Annotation for today's value
     plt.annotate(todays_text % (current_temp, today_average, today.strftime("%d %B")), 
                  xy=(2018, current_temp), 
-                 xytext=(2022, current_temp - 2),
+                 xytext=(2022, current_temp + annote_offset),
                  horizontalalignment='left', 
                  verticalalignment='top',
                  **label_font_strong,
