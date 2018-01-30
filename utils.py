@@ -131,9 +131,11 @@ def getTemp(city, country):
 
     # Exception for New York
     if city == "New York City":
-        city = "New York"
+        city_ = "New York"
+    else:
+        city_ = city
 
-    url = "http://api.openweathermap.org/data/2.5/weather?q=%s,%s&APPID=%s" % (city, country, os.environ["OWMKEY"])
+    url = "http://api.openweathermap.org/data/2.5/weather?q=%s,%s&APPID=%s" % (city_, country, os.environ["OWMKEY"])
     r = requests.get(url)
     json_data = json.loads(r.text)
     temp = json_data["main"]["temp"] - 272.15
