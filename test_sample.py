@@ -49,11 +49,11 @@ def test_makeGraph():
 
 def test_makeStats():
 	img_data = utils.makeStats("Paris")
-	assert(type(img_data) == bytes)
+	assert(type(img_data) == bytes or img_data == "No data")
 	img_data = utils.makeStats("Bishkek")
-	assert(type(img_data) == bytes)
+	assert(type(img_data) == bytes or img_data == "No data")
 	img_data = utils.makeStats("Milan")
-	assert(type(img_data) == bytes)
+	assert(type(img_data) == bytes or img_data == "No data")
 
 def test_getStats():
 	media_id = utils.getStats("Berlin")
