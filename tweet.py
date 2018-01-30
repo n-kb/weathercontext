@@ -1,4 +1,4 @@
-from utils import makeGraph, sendTweet, CITIES
+from utils import getTemp, sendTweet, CITIES
 import os
 import datetime as dt
 
