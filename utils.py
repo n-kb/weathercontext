@@ -79,10 +79,9 @@ def dbInit():
         class Meta:
             database = db
 
-    class CityGraph(BaseModel):
-        image_url = CharField()
+    class CityTemp(BaseModel):
         city = CharField()
-        title = CharField()
+        temp = FloatField()
         date = DateField()
 
         class Meta:
@@ -90,9 +89,9 @@ def dbInit():
 
 
     db.connect()
-    db.create_tables([CityGraph], safe=True)
+    db.create_tables([CityTemp], safe=True)
 
-    return CityGraph
+    return CityTemp
 
 def geoloc (s):
     url = "http://nominatim.openstreetmap.org/search/?format=json&q=%s&limit=1" % s
@@ -137,38 +136,20 @@ def getTemp(city, country):
     url = "http://api.openweathermap.org/data/2.5/weather?q=%s,%s&APPID=%s" % (city, country, os.environ["OWMKEY"])
     r = requests.get(url)
     json_data = json.loads(r.text)
-    # returns temperature in Celsius
-    return json_data["main"]["temp"] - 272.15
+    temp = json_data["main"]["temp"] - 272.15
 
-def saveToS3(plt, city):
-    img_data = io.BytesIO()
-    plt.savefig(img_data, format='png')
-    img_data.seek(0)
-    filename = "%s-%s.png" % (dt.date.today().strftime("%Y-%m-%d"), city)
+    # Gets the local time of the city
+    time_offset = int(CITIES[city]["timezone"])
+    today = dt.datetime.now() + dt.timedelta(hours=time_offset)
 
-    if os.environ["DEBUG"] == "local":
-        plt.savefig("temp/%s" % filename, format='png')
-    elif os.environ["DEBUG"] == "False":
-        s3_session = boto3.Session(
-            aws_access_key_id=os.environ["ACCESS_KEY"],
-            aws_secret_access_key=os.environ["SECRET_KEY"],
-            region_name='us-east-1'
-        )
-        s3 = s3_session.resource('s3')
-        bucket = s3.Bucket(os.environ["BUCKET_NAME"])
-        bucket.put_object(Body=img_data, ContentType='image/png', Key=filename, ACL='public-read')
-    return "https://s3-eu-west-1.amazonaws.com/weathercontext/" + filename
-
-def storeResult(image_url, city, title, today):
-
-    CityGraph = dbInit()
+    # Stores the temperature
+    CityTemp = dbInit()
 
     try:
-        CityGraph.create(
-            image_url = image_url,
+        CityTemp.create(
             city = city,
-            title = title,
-            date = today
+            date = today.strftime("%Y-%m-%d"),
+            temp = temp
         )
         print ("\033[92mInserted data for %s.\033[0m" % city)
 
@@ -177,46 +158,48 @@ def storeResult(image_url, city, title, today):
         print ("\033[93mCould not insert data for %s.\033[0m" % city)
         pass
 
-def sendTweet(city, username = None, reply_to = None, new_record = False):
+    # returns temperature in Celsius
+    return temp
 
-    CityGraph = dbInit()
+def sendTweet(city, username = None, reply_to = None):
+
+    CityTemp = dbInit()
     no_graph = 0
     yesterday = None
+    country = CITIES[city]["country"]
     
-    # Fetches image from DB
+    # Fetches temp from DB
     # The time is adapted to the timezone, Heroku works in UTC
     time_offset = int(CITIES[city]["timezone"])
     today = dt.datetime.now() + dt.timedelta(hours=time_offset)
-    citygraphs = CityGraph.select().where(CityGraph.date == today.strftime("%Y-%m-%d")).where(CityGraph.city == city)
+    citytemps = CityTemp.select().where(CityTemp.date == today.strftime("%Y-%m-%d")).where(CityTemp.city == city)
 
     # If there is a graph ready for the day
-    if (citygraphs.count() == 1):
-        citygraph = citygraphs[0]
+    if (citytemps.count() == 1):
+        date_to_graph = today
+        citytemp = citytemps[0].temp
 
     # In case there is no graph for today's data, maybe there is one for yesterday
     else:
         yesterday = today - dt.timedelta(days=1)
-        citygraphs = CityGraph.select().where(CityGraph.date == yesterday.strftime("%Y-%m-%d")).where(CityGraph.city == city)
-        if (citygraphs.count() == 1):
-            citygraph = citygraphs[0]
+        date_to_graph = yesterday
+        citytemps = CityTemp.select().where(CityTemp.date == yesterday.strftime("%Y-%m-%d")).where(CityTemp.city == city)
+        if (citytemps.count() == 1):
+            citytemp = citytemps[0].temp
         else:
             no_graph = 1
 
+    imagedata, title, new_record = makeGraph(city, country, date=date_to_graph, current_temp=citytemp)
 
     if no_graph == 1:
         status_text = "@%s 🐕 I have data for %s but the first contextual report will be created at noon local time. Check back later!" % (username, city)
-        imagedata = None
     else:
         if username == None:
-            status_text = citygraph.title
+            status_text = title
         elif yesterday is not None: 
             status_text = "@%s Here's the context data for %s you wanted! It's yesterday's data because I only refresh my graphs at noon local time. 🐕🐕" % (username, city)
         else:
             status_text = "@%s Here's the context data for %s you wanted! 🐕🐕" % (username, city)
-
-        r = requests.get(citygraph.image_url, stream=True)
-        r.raw.decode_content = True
-        imagedata = r.raw.read()
     
     auth = OAuth(os.environ["ACCESS_TOKEN"], os.environ["ACCESS_SECRET"], os.environ["TWITTER_KEY"], os.environ["TWITTER_SECRET"])
 
@@ -243,15 +226,32 @@ def sendTweet(city, username = None, reply_to = None, new_record = False):
     else:
         return status_text, img_ids
 
-def makeGraph(city, country):
+def makeGraph(city, country, date=None, current_temp=None):
     # Prevents panda from producing a warning
     pd.options.mode.chained_assignment = None
 
+    fig, ax = plt.subplots(1, 1, figsize=(12, 6))
+
     df = pd.read_csv('data/%s.csv' % city.lower())
 
-    current_temp = getTemp(city, country)
+    if date == None:
+        today = dt.date.today()
+    else:
+        today = date
 
-    today = dt.date.today()
+    # If no current temperature is passed, fetches it
+    if current_temp == None:
+        CityTemp = dbInit()
+
+        # Fetches temperature from DB
+        citytemps = CityTemp.select().where(CityTemp.date == today.strftime("%Y-%m-%d")).where(CityTemp.city == city)
+        if (citytemps.count() == 1):
+            citytemp = citytemps[0]
+            current_temp = citytemp.temp
+        else:
+            # No temperature found
+            return False
+
     new_record = False
 
     # Converts date col to datetime
@@ -260,9 +260,6 @@ def makeGraph(city, country):
     # Converts Kelvin to Celsius
     df["Value at MetPoint"] = df["Value at MetPoint"] - 272.15
 
-    # Computes today's day number
-    yday = today.toordinal() - dt.date(today.year, 1, 1).toordinal() + 1
-
     # Average for today 1979 - 2000
     df_today = df.loc[(df['Date'].dt.month == today.month) & (df['Date'].dt.day == today.day) & (df['Date'].dt.year <= 2000)]
     today_average = df_today["Value at MetPoint"].mean()
@@ -270,11 +267,37 @@ def makeGraph(city, country):
     # Get the max values
     df_today = df.loc[(df['Date'].dt.month == today.month) & (df['Date'].dt.day == today.day)]
     max_temp = df_today["Value at MetPoint"].max()
+    min_temp = df_today["Value at MetPoint"].min()
     max_id = df_today["Value at MetPoint"].idxmax()
     max_year = df_today.loc[max_id]["Date"]
 
-    abs_max = -100
-    abs_min = 100
+    # A color range for years
+    # Temperatures are multiplied by 100 because the color scale works with integer, x100 allows for more granularity
+    colors = {"lowkey_blue": "#737D99", "dark_blue": "#335CCC", "cringing_blue": "#59DDFF", "lowkey_red":"#FFBB99", "strong_red": "#CC5033"}
+    color_ramp = list(Color("yellow").range_to(Color(colors["strong_red"]),int(max_temp*100)-int(min_temp*100)))
+    x = range(1979, 2018)
+    x_avg = range(1979 - 2, 2018 + 4)
+    y =  df_today["Value at MetPoint"]
+    avg = np.full((2018 + 4 - 1979 + 2), today_average)
+
+    # Plots the average
+    ax.plot(x_avg, avg, lw=.5, color="black", alpha=.4, linestyle='--')
+
+    # Plots the vertical lines unders each dot
+    for index, row in df_today.iterrows():
+        temp = row["Value at MetPoint"]
+        year = row['Date'].year
+        color = color_ramp[int(temp*100-max_temp*100)].rgb
+        if temp == max_temp:
+            color = colors["strong_red"]
+        ax.plot((year, year), (temp,today_average),  marker=None, color=color, alpha=.7)
+        ax.plot(year, temp, color=color, marker="o")
+
+    # Plots today's value
+    ax.scatter(2018, current_temp, marker='o', color = colors["strong_red"])
+
+    # Fits the x axis
+    ax.set_xlim([1979 - 2, 2018 + 15])
 
 
     colors = {  "lowkey_blue": "#737D99", 
@@ -284,10 +307,12 @@ def makeGraph(city, country):
                 "strong_red": "#CC5033"}
 
     font_color = "#676767"
-    serif_font = 'Ranga'
     sans_fontfile = 'fonts/LiberationSans-Regular.ttf'     
     serif_fontfile = 'fonts/VeraSerif.ttf'     
     title_font = {'fontproperties': font_manager.FontProperties(fname=serif_fontfile, size=21)
+                  ,'color': font_color
+                 }
+    subtitle_font = {'fontproperties': font_manager.FontProperties(fname=serif_fontfile, size=12)
                   ,'color': font_color
                  }
     label_font = {'fontproperties': font_manager.FontProperties(fname=sans_fontfile, size=10)
@@ -302,50 +327,7 @@ def makeGraph(city, country):
                     ,'color': font_color
                     , 'weight': 'bold'}
 
-    fig, ax = plt.subplots(1, 1, figsize=(12, 6))
-
-    # A color range for years
-    color_ramp = list(Color("yellow").range_to(Color(colors["strong_red"]),2018-1979))
-
-    # Plots curve for all years
-    for year in range(1979, 2018):
-        
-        # Current day for year=year
-        current_day = dt.datetime(year, today.month, today.day, 0, 0)
-        
-        # Creates a df from Jan 1 to today for given year
-        df_year = df.loc[(df['Date'] >= str(year) + '-01-01') & (df['Date'] <= current_day)]
-        
-        # Remove February 29
-        if year % 4 == 0:
-            df_year = df_year.loc[((df_year['Date'] != str(year) + '-02-29'))]
-        
-        # Gets abs max and mins
-        if df_year["Value at MetPoint"].max() > abs_max:
-            abs_max = df_year["Value at MetPoint"].max()
-        if df_year["Value at MetPoint"].min() < abs_min:
-            abs_min = df_year["Value at MetPoint"].min()
-
-        # Create a new column with day number
-        num_days = df_year['Date'].count()
-        df_year["day_num"] = np.arange(1,num_days + 1)
-        
-        # Plotting instructions
-        lw = .3
-        alpha = .5
-        color = color_ramp[year-1979].rgb
-        
-        # Plots daily values
-        ax.plot(yday, df.loc[(df['Date'] == current_day), "Value at MetPoint"], marker='o', color = color, alpha = alpha)
-        
-        # Makes a spline for past values
-        xnew = np.linspace(yday - 11,yday, num=15*5, endpoint=True)
-        f2 = interp1d(df_year["day_num"], df_year["Value at MetPoint"], kind='cubic')
-        ax.plot(xnew, f2(xnew), color=color, lw=lw)
-
-    # Plots today's value
-    ax.plot(yday, current_temp, marker='o', color = colors["strong_red"])
-
+    
     # Generate the texts
     diff_from_avg = current_temp - today_average
 
@@ -356,7 +338,7 @@ def makeGraph(city, country):
     if current_temp > 25:
         hot_or_warm = "hot"
 
-        
+    subtitle = "Temperatures on %s in %s, 1979 to 2017. Colors show the distance to the 1979-2000 average temperature." % (today.strftime("%d %B"), city)
     if (diff_from_avg < -2):
         todays_text = "Today at noon, the temperature\nwas %d°C, lower than the\n1979-2000 average of %.2f°C\nfor a %s."
         title = "It's %d°C today in %s, pretty cold for a %s!"  % (current_temp, city, today.strftime("%d %B"))
@@ -376,24 +358,10 @@ def makeGraph(city, country):
         title = "It's %d°C today in %s, new record for a %s!" % (current_temp, city, today.strftime("%d %B"))
         new_record = True
         
-    else:
-        # Annotation for max value
-        annotation_text = "On %s \nthe temperature reached %d°C."
-        plt.annotate(annotation_text % (max_year.strftime("%B %d, %Y,"), max_temp), 
-                     xy=(yday, max_temp), 
-                     xytext=(yday+.7, max_temp + 1),
-                     horizontalalignment='left', 
-                     verticalalignment='top',
-                     **label_font_strong,
-                     arrowprops=dict(arrowstyle="->",
-                                    connectionstyle="arc3,rad=-0.3"
-                                    )
-                    )
-
     # Annotation for today's value
     plt.annotate(todays_text % (current_temp, today_average, today.strftime("%d %B")), 
-                 xy=(yday, current_temp), 
-                 xytext=(yday+.7, current_temp - 2),
+                 xy=(2018, current_temp), 
+                 xytext=(2022, current_temp - 2),
                  horizontalalignment='left', 
                  verticalalignment='top',
                  **label_font_strong,
@@ -401,43 +369,6 @@ def makeGraph(city, country):
                                 connectionstyle="arc3,rad=-0.3"
                                 )
                 )
-
-    # Annotation for the warmest and coldest years
-
-    plt.annotate("Each line represents the temperature for a year.\nThis is 2016, warmest year on record.", 
-                 xy=(yday - 9, df.loc[(df["Date"] == "2016-" + (today - dt.timedelta(days=9)).strftime("%m-%d"))]["Value at MetPoint"]), 
-                 xytext=(yday - 8, abs_max+2),
-                 horizontalalignment='left', 
-                 verticalalignment='top',
-                 **label_font,
-                 arrowprops=dict(arrowstyle="->",
-                                connectionstyle="arc3,rad=-0.3",
-                                ec=font_color
-                                )
-                )
-
-    plt.annotate("And this is 1979.\nYellow lines are for older years,\nred ones for more recent ones.", 
-                 xy=(yday - 3, df.loc[(df["Date"] == "1979-" + (today - dt.timedelta(days=3)).strftime("%m-%d"))]["Value at MetPoint"]), 
-                 xytext=(yday - 8, abs_min + 1),
-                 horizontalalignment='left', 
-                 verticalalignment='top',
-                 **label_font,
-                 arrowprops=dict(arrowstyle="->",
-                                connectionstyle="arc3,rad=-0.3",
-                                ec=font_color
-                                )
-                )
-
-    # Focuses on today
-    ax.set_xlim([yday - 10,yday + 5])
-
-    # Forces spaces on top of chart
-    ax.set_ylim([abs_min - 5, abs_max + 4])
-
-    # Set x axis ticks
-    times = pd.date_range(today - dt.timedelta(days=10), periods=15, freq='1d')
-    xfmt = mdates.DateFormatter('%-d %B')
-    ax.xaxis.set_major_formatter(xfmt)
 
     # Set units for yaxis
     ax.yaxis.set_major_formatter(mticker.FormatStrFormatter('%d°C'))
@@ -452,6 +383,7 @@ def makeGraph(city, country):
 
     ## Adds title
     plt.figtext(.05,.9,title, **title_font)
+    plt.figtext(.05, .83, subtitle, **subtitle_font)
 
     ## Adds source
     plt.figtext(.05, .03, "Data source: ECMWF, openweathermap", **smaller_font)
@@ -478,10 +410,16 @@ def makeGraph(city, country):
     ## Reduces size of plot to allow for text
     plt.subplots_adjust(top=0.75, bottom=0.10)
 
-    image_url = saveToS3(plt, city)
+    # Saves image to disk locally
+    if os.environ["DEBUG"] == "local":
+        filename = city + today.strftime("%Y-%m-%d")
+        plt.savefig("temp/%s" % filename, format='png')
 
-    storeResult(image_url, city, title, today)
+    # Saves images to string
+    img_data = io.BytesIO()
+    plt.savefig(img_data, format='png')
+    img_data.seek(0)
 
     plt.close()
 
-    return new_record
+    return img_data.read(), title, new_record

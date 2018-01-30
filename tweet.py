@@ -11,10 +11,10 @@ def updateCities():
     for city in CITIES:
         # Makes the graph for each city if it's noon o'clock
         if current_hour + int(CITIES[city]["timezone"]) == 12:
-            new_record = makeGraph(CITIES[city]["name"], CITIES[city]["country"])
-        
+            getTemp(CITIES[city]["name"], CITIES[city]["country"])
+            
             if os.environ["DEBUG"] == "False" and city == "Berlin":
-                sendTweet("Berlin", new_record=new_record)
+                sendTweet("Berlin")
 
     return "OK"
 

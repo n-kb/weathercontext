@@ -36,7 +36,16 @@ def test_gif():
 def test_cityLoop():
 	assert(tweet.updateCities() == "OK")
 
+def test_getTemp():
+	temp = utils.getTemp("Berlin", "DE")
+	assert(type(temp) == float)
+
+def test_makeGraph():
+	img_data, title, new_record = utils.makeGraph("Berlin", "DE")
+	assert(type(img_data) == bytes)
+	img_data, title, new_record = utils.makeGraph("Berlin", "DE", date=dt.datetime.now(), current_temp=20)
+	assert(new_record == True)
+
 def test_sendTweet():
-	tweet_text, media_ids = utils.sendTweet("London")
-	assert(type(media_ids) == str)
-	assert(type(tweet_text) == str)
+	status_text, img_ids = utils.sendTweet("Berlin")
+	assert(type(status_text) == str)
