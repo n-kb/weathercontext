@@ -49,3 +49,5 @@ def test_makeGraph():
 def test_sendTweet():
 	status_text, img_ids = utils.sendTweet("Berlin")
 	assert(type(status_text) == str)
+	status_text, img_ids = utils.sendTweet("Bonn", username = "test_user", reply_to = "0000000")
+	assert(type(status_text) == str)
