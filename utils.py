@@ -19,6 +19,30 @@ from peewee import *
 import matplotlib.dates as mdates
 from twitter import *
 
+# Variables for the design of the graphs.
+# Should they be in a Graph class? Of course they should.
+
+font_color = "#676767"
+sans_fontfile = 'fonts/LiberationSans-Regular.ttf'     
+serif_fontfile = 'fonts/VeraSerif.ttf'     
+title_font = {'fontproperties': font_manager.FontProperties(fname=serif_fontfile, size=21)
+              ,'color': font_color
+             }
+subtitle_font = {'fontproperties': font_manager.FontProperties(fname=serif_fontfile, size=12)
+              ,'color': font_color
+             }
+label_font = {'fontproperties': font_manager.FontProperties(fname=sans_fontfile, size=10)
+             ,'color': font_color
+             }
+
+label_font_strong = {'fontproperties': font_manager.FontProperties(fname=sans_fontfile, size=10)
+             ,'color': 'black'
+             }
+
+smaller_font = {'fontproperties': font_manager.FontProperties(fname=sans_fontfile, size=7)
+                ,'color': font_color
+                , 'weight': 'bold'}
+
 if 'CLEARDB_DATABASE_URL' not in os.environ:
     from playhouse.sqlite_ext import SqliteExtDatabase
 
@@ -228,11 +252,65 @@ def sendTweet(city, username = None, reply_to = None):
     else:
         return status_text, img_ids
 
+def blankGraph():
+    fig, ax = plt.subplots(1, 1, figsize=(12, 6))
+    ## Adds a horizontal line under the title
+    con = ConnectionPatch(xyA=(.05,.88), xyB=(.95,.88), coordsA="figure fraction", coordsB="figure fraction", 
+                          axesA=None, axesB=None, color=font_color, lw=.1)
+    ax.add_artist(con)
+
+    ## Adds source
+    plt.figtext(.05, .03, "Data source: ECMWF, openweathermap", **smaller_font)
+
+    # Removes top and right axes
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+
+    ## Sets axes color
+    ax.spines['bottom'].set_color(font_color)
+    ax.spines['left'].set_color(font_color)
+    ax.tick_params(axis='x', colors=font_color)
+    ax.tick_params(axis='y', colors=font_color)
+    ax.yaxis.label.set_color(font_color)
+    ax.xaxis.label.set_color(font_color)
+
+    # Sets labels fonts for axes
+    for label in ax.get_xticklabels():
+        label.set_fontproperties(font_manager.FontProperties(fname=sans_fontfile))
+        label.set_fontsize(9) 
+    for label in ax.get_yticklabels():
+        label.set_fontproperties(font_manager.FontProperties(fname=sans_fontfile))
+        label.set_fontsize(9) 
+
+    ## Reduces size of plot to allow for text
+    plt.subplots_adjust(top=0.75, bottom=0.10)
+
+    return fig, ax
+
+def makeStats(city):
+
+    fig, ax = blankGraph()
+
+    today = dt.date.today()
+    # Saves image to disk locally
+    if os.environ["DEBUG"] == "local":
+        filename = city + today.strftime("%Y-%m-%d") + "_stats"
+        plt.savefig("temp/%s" % filename, format='png')
+
+    # Saves images to string
+    img_data = io.BytesIO()
+    plt.savefig(img_data, format='png')
+    img_data.seek(0)
+
+    plt.close()
+
+    return img_data.read()
+
 def makeGraph(city, country, date=None, current_temp=None):
     # Prevents panda from producing a warning
     pd.options.mode.chained_assignment = None
 
-    fig, ax = plt.subplots(1, 1, figsize=(12, 6))
+    fig, ax = blankGraph()
 
     df = pd.read_csv('data/%s.csv' % city.lower())
 
@@ -307,35 +385,6 @@ def makeGraph(city, country, date=None, current_temp=None):
 
     # Fits the x axis
     ax.set_xlim([1979 - 2, 2018 + 15])
-
-
-    colors = {  "lowkey_blue": "#737D99", 
-                "dark_blue": "#335CCC", 
-                "cringing_blue": "#59DDFF", 
-                "lowkey_red":"#FFBB99", 
-                "strong_red": "#CC5033"}
-
-    font_color = "#676767"
-    sans_fontfile = 'fonts/LiberationSans-Regular.ttf'     
-    serif_fontfile = 'fonts/VeraSerif.ttf'     
-    title_font = {'fontproperties': font_manager.FontProperties(fname=serif_fontfile, size=21)
-                  ,'color': font_color
-                 }
-    subtitle_font = {'fontproperties': font_manager.FontProperties(fname=serif_fontfile, size=12)
-                  ,'color': font_color
-                 }
-    label_font = {'fontproperties': font_manager.FontProperties(fname=sans_fontfile, size=10)
-                 ,'color': font_color
-                 }
-
-    label_font_strong = {'fontproperties': font_manager.FontProperties(fname=sans_fontfile, size=10)
-                 ,'color': 'black'
-                 }
-
-    smaller_font = {'fontproperties': font_manager.FontProperties(fname=sans_fontfile, size=7)
-                    ,'color': font_color
-                    , 'weight': 'bold'}
-
     
     # Generate the texts
     diff_from_avg = current_temp - today_average
@@ -387,37 +436,9 @@ def makeGraph(city, country, date=None, current_temp=None):
     # Set units for yaxis
     ax.yaxis.set_major_formatter(mticker.FormatStrFormatter('%d°C'))
 
-    # Sets labels fonts for axes
-    for label in ax.get_xticklabels():
-        label.set_fontproperties(font_manager.FontProperties(fname=sans_fontfile))
-        label.set_fontsize(9) 
-    for label in ax.get_yticklabels():
-        label.set_fontproperties(font_manager.FontProperties(fname=sans_fontfile))
-        label.set_fontsize(9) 
-
     ## Adds title
     plt.figtext(.05,.9,title, **title_font)
     plt.figtext(.05, .83, subtitle, **subtitle_font)
-
-    ## Adds source
-    plt.figtext(.05, .03, "Data source: ECMWF, openweathermap", **smaller_font)
-
-    ## Adds a horizontal line under the title
-    con = ConnectionPatch(xyA=(.05,.88), xyB=(.95,.88), coordsA="figure fraction", coordsB="figure fraction", 
-                          axesA=None, axesB=None, color=font_color, lw=.1)
-    ax.add_artist(con)
-
-    # Removes top and right axes
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
-
-    ## Sets axes color
-    ax.spines['bottom'].set_color(font_color)
-    ax.spines['left'].set_color(font_color)
-    ax.tick_params(axis='x', colors=font_color)
-    ax.tick_params(axis='y', colors=font_color)
-    ax.yaxis.label.set_color(font_color)
-    ax.xaxis.label.set_color(font_color)
 
     fig.tight_layout()
 

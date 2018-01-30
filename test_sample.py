@@ -48,6 +48,15 @@ def test_makeGraph():
 	img_data, title, new_record = utils.makeGraph("Berlin", "DE", date=dt.datetime.now(), current_temp=-10)
 	assert(new_record == False)
 
+def test_makeStats():
+	img_data = utils.makeStats("Berlin")
+	assert(type(img_data) == bytes)
+
+def test_blankGraph():
+	fig, ax = utils.blankGraph()
+	print (fig.__class__)
+	assert(fig.__class__.__name__ == 'Figure')
+
 def test_sendTweet():
 	status_text, img_ids = utils.sendTweet("Berlin")
 	assert(type(status_text) == str)
