@@ -42,6 +42,8 @@ label_font_strong = {'fontproperties': font_manager.FontProperties(fname=sans_fo
 smaller_font = {'fontproperties': font_manager.FontProperties(fname=sans_fontfile, size=7)
                 ,'color': font_color
                 , 'weight': 'bold'}
+colors = {"lowkey_blue": "#737D99", "dark_blue": "#335CCC", "cringing_blue": "#59DDFF", "lowkey_red":"#FFBB99", "strong_red": "#CC5033"}
+
 
 if 'CLEARDB_DATABASE_URL' not in os.environ:
     from playhouse.sqlite_ext import SqliteExtDatabase
@@ -189,6 +191,9 @@ def getTemp(city, country):
 
 def sendTweet(city, username = None, reply_to = None):
 
+    # List of image ids
+    img_ids = []
+
     CityTemp = dbInit()
     no_graph = 0
     yesterday = None
@@ -222,18 +227,17 @@ def sendTweet(city, username = None, reply_to = None):
         imagedata, title, new_record = makeGraph(city, country, date=date_to_graph, current_temp=citytemp)
         if username == None:
             status_text = title
-        elif yesterday is not None: 
-            status_text = "@%s Here's the context data for %s you wanted! It's yesterday's data because I only refresh my graphs at noon local time. 🐕🐕" % (username, city)
         else:
-            status_text = "@%s Here's the context data for %s you wanted! 🐕🐕" % (username, city)
+            img_ids.append(getStats(city))
+            if yesterday is not None: 
+                status_text = "@%s Here's the context data for %s you wanted! It's yesterday's data because I only refresh my graphs at noon local time. 🐕🐕" % (username, city)
+            else:
+                status_text = "@%s Here's the context data for %s you wanted! 🐕🐕" % (username, city)
   
     auth = OAuth(os.environ["ACCESS_TOKEN"], os.environ["ACCESS_SECRET"], os.environ["TWITTER_KEY"], os.environ["TWITTER_SECRET"])
 
     # Authenticate to twitter
     t = Twitter(auth=auth)
-
-    # List of image ids
-    img_ids = []
 
     if imagedata is not None:
         t_upload = Twitter(domain='upload.twitter.com', auth=auth)
@@ -282,16 +286,123 @@ def blankGraph():
         label.set_fontproperties(font_manager.FontProperties(fname=sans_fontfile))
         label.set_fontsize(9) 
 
-    ## Reduces size of plot to allow for text
-    plt.subplots_adjust(top=0.75, bottom=0.10)
+    # Set units for yaxis
+    ax.yaxis.set_major_formatter(mticker.FormatStrFormatter('%d°C'))
 
     return fig, ax
 
+def getStats(city):
+    auth = OAuth(os.environ["ACCESS_TOKEN"], os.environ["ACCESS_SECRET"], os.environ["TWITTER_KEY"], os.environ["TWITTER_SECRET"])
+
+    # Authenticate to twitter
+    t_upload = Twitter(domain='upload.twitter.com', auth=auth)
+    
+    imagedata = makeStats(city)
+
+    # Sends image to twitter
+    id_img = t_upload.media.upload(media=imagedata)["media_id_string"]
+
+    return id_img
+
 def makeStats(city):
+
+    CityTemp = dbInit()
 
     fig, ax = blankGraph()
 
     today = dt.date.today()
+
+    df = pd.read_csv('data/%s.csv' % city.lower())
+
+    # Converts date col to datetime
+    df["Date"] = pd.to_datetime(df["Date"], format='%Y%m%d', errors='ignore')
+
+    # Converts Kelvin to Celsius
+    df["Value at MetPoint"] = df["Value at MetPoint"] - 272.15
+
+    # Fetches temperatures from DB
+    citytemps = CityTemp.select().where(CityTemp.city == city).order_by(CityTemp.date).desc()
+    from_date = citytemps[0].date.strftime("%d %B")
+
+    # A nice color ramp from -5 to +5°
+    color_ramp = list(Color("yellow").range_to(Color(colors["strong_red"]),11))
+
+    days_above = 0
+    days_strongly_above = 0
+    days_below = 0
+    max_diff = -999
+    # Loops through the days
+    for citytemp in citytemps:
+        day = citytemp.date
+        # Computes the diff to average
+        df_day = df.loc[(df['Date'].dt.month == day.month) & (df['Date'].dt.day == day.day) & (df['Date'].dt.year <= 2000)]
+        day_average = df_day["Value at MetPoint"].mean()
+        diff_to_avg = citytemp.temp - day_average
+
+        if diff_to_avg > max_diff:
+            max_diff = diff_to_avg
+
+        if diff_to_avg > 2:
+            days_above += 1
+        if diff_to_avg >= 5:
+            days_strongly_above += 1
+        if diff_to_avg <= 1:
+            days_below += 1
+        
+        # Looks for the appropriate color
+        if abs(diff_to_avg) <= 5:
+            color = color_ramp[int(diff_to_avg)+5].rgb
+        elif diff_to_avg >= 5:
+            color = colors["strong_red"]
+        elif diff_to_avg < -5:
+            color = "yellow"
+
+        # And plots!
+        ax.bar(citytemp.date, diff_to_avg, width=1.0, align='edge', lw=.1, ec="black", color=color)
+
+    # Writes the title
+    if days_strongly_above >= 4:
+        title = "In %s, temperatures were way too hot on %d days since %s" % (city, days_strongly_above, from_date)
+    elif days_above >= 4:
+        title = "In %s, temperatures were above average on %d days since %s" % (city, days_above, from_date)
+    elif days_below >= 4:
+        title = "In %s, temperatures were below average on %d days since %s" % (city, days_below, from_date)
+    else:
+        title = "In %s, temperatures were pretty average every day since %s" % (city, from_date)
+    subtitle = "The height of each bar shows the difference to the daily average between 1979 and 2000."
+
+    ## Adds title
+    plt.figtext(.05,.9,title, **title_font)
+    plt.figtext(.05, .83, subtitle, **subtitle_font)
+
+    todays_text = "On %s, the\ntemperature was %.1f°C.\nOn that day between\n1979 and 2000, the\naverage temperature\nwas %.1f°C.\nThe difference is %.1f°C."
+
+    # Annotation for today's value
+    plt.annotate(todays_text % (citytemps[-1].date.strftime("%d %B"), citytemps[-1].temp, day_average, diff_to_avg), 
+                 xy=(citytemps[-1].date + dt.timedelta(days=1), diff_to_avg), 
+                 xytext=(citytemps[-1].date + dt.timedelta(days=2), max_diff),
+                 horizontalalignment='left', 
+                 verticalalignment='top',
+                 **label_font_strong,
+                 arrowprops=dict(arrowstyle="->",
+                                connectionstyle="arc3,rad=-0.3"
+                                )
+                )
+
+    # Fits the x axis to no space to the left and plenty to the right
+    lowest_date = citytemps[0].date
+    largest_date = citytemps[-1].date + dt.timedelta(days=1)
+    ax.set_xlim([lowest_date, largest_date])
+
+    # Formats x axis
+    xfmt = mdates.DateFormatter('%-d %B')
+    ax.xaxis.set_major_formatter(xfmt)
+
+    fig.tight_layout()
+
+    ## Reduces size of plot to allow for text
+    plt.subplots_adjust(top=0.75, bottom=0.10, right=0.8)
+
     # Saves image to disk locally
     if os.environ["DEBUG"] == "local":
         filename = city + today.strftime("%Y-%m-%d") + "_stats"
@@ -353,7 +464,6 @@ def makeGraph(city, country, date=None, current_temp=None):
 
     # A color range for years
     # Temperatures are multiplied by 100 because the color scale works with integer, x100 allows for more granularity
-    colors = {"lowkey_blue": "#737D99", "dark_blue": "#335CCC", "cringing_blue": "#59DDFF", "lowkey_red":"#FFBB99", "strong_red": "#CC5033"}
     color_ramp = list(Color("yellow").range_to(Color(colors["strong_red"]),int(max_temp*100)-int(min_temp*100)))
     x = range(1979, 2018)
     x_avg = range(1979 - 2, 2018 + 4)
@@ -432,9 +542,6 @@ def makeGraph(city, country, date=None, current_temp=None):
                                 connectionstyle="arc3,rad=-0.3"
                                 )
                 )
-
-    # Set units for yaxis
-    ax.yaxis.set_major_formatter(mticker.FormatStrFormatter('%d°C'))
 
     ## Adds title
     plt.figtext(.05,.9,title, **title_font)

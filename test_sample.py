@@ -30,7 +30,6 @@ def test_geoloc():
 
 def test_gif():
 	media_id = utils.getGif()
-	print (media_id)
 	assert (type(int(media_id)) == int)
 
 def test_cityLoop():
@@ -49,8 +48,16 @@ def test_makeGraph():
 	assert(new_record == False)
 
 def test_makeStats():
-	img_data = utils.makeStats("Berlin")
+	img_data = utils.makeStats("Paris")
 	assert(type(img_data) == bytes)
+	img_data = utils.makeStats("Bishkek")
+	assert(type(img_data) == bytes)
+	img_data = utils.makeStats("Milan")
+	assert(type(img_data) == bytes)
+
+def test_getStats():
+	media_id = utils.getStats("Berlin")
+	assert (type(int(media_id)) == int)
 
 def test_blankGraph():
 	fig, ax = utils.blankGraph()
