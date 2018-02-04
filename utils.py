@@ -484,9 +484,12 @@ def makeGraph(city, country, date=None, current_temp=None):
     for index, row in df_today.iterrows():
         temp = row["Value at MetPoint"]
         year = row['Date'].year
-        color = color_ramp[int(temp*100-max_temp*100)].rgb
         if temp == max_temp:
             color = colors["strong_red"]
+        elif temp == min_temp:
+            color = "yellow"
+        else:
+            color = color_ramp[int(temp*100-max_temp*100)].rgb
         ax.plot((year, year), (temp,today_average),  marker=None, color=color, alpha=.7)
         ax.plot(year, temp, color=color, marker="o")
 
